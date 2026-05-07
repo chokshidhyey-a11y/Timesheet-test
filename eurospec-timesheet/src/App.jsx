@@ -48,13 +48,20 @@ const SEED_ENTRIES = [
   { id: "t8", employeeId: "E002", employeeName: "Dana Kowalski",  date: "2026-05-01", day: "Thursday",  job: "2162", hours: 7,   rnd: false, status: "pending",  supervisorId: "S001", notes: "" },
 ];
 
-// ─── Date Seq: per employee + date + job ──────────────────────────────────────
+// ─── Date Seq: per employee + date + job, only when duplicates exist ─────────
 const computeSeq = (entries) => {
+  // First pass: count occurrences per key
+  const totals = {};
+  entries.forEach(e => {
+    const key = `${e.employeeId}|${e.date}|${e.job}`;
+    totals[key] = (totals[key] || 0) + 1;
+  });
+  // Second pass: assign seq only if total > 1
   const counts = {};
   return entries.map(e => {
     const key = `${e.employeeId}|${e.date}|${e.job}`;
     counts[key] = (counts[key] || 0) + 1;
-    return { ...e, dateSeq: counts[key] };
+    return { ...e, dateSeq: totals[key] > 1 ? counts[key] : "" };
   });
 };
 
@@ -192,12 +199,23 @@ function ToolmakerForm({ user, entries, projectCodes, onSubmit }) {
               borderRadius: 6, padding: "12px 14px", transition: "background .2s, border-color .2s",
             }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px auto 28px", gap: 10, alignItems: "center" }}>
-                <select className="form-select" value={row.job} onChange={e => updateRow(row.id, "job", e.target.value)}>
-                  <option value="">— Select Project Code —</option>
-                  {projectCodes.map(p => (
-                    <option key={p.code} value={p.code}>{p.code}{p.description ? ` — ${p.description}` : ""}</option>
-                  ))}
-                </select>
+                <div style={{ position: "relative" }}>
+                  <input
+                    className="form-input"
+                    placeholder="Type project code..."
+                    value={row.job}
+                    onChange={e => updateRow(row.id, "job", e.target.value)}
+                    autoComplete="off"
+                    list={`pc-list-${row.id}`}
+                  />
+                  <datalist id={`pc-list-${row.id}`}>
+                    {projectCodes
+                      .filter(p => !row.job || p.code.includes(row.job) || p.description.toLowerCase().includes(row.job.toLowerCase()))
+                      .map(p => (
+                        <option key={p.code} value={p.code}>{p.code}{p.description ? ` — ${p.description}` : ""}</option>
+                      ))}
+                  </datalist>
+                </div>
                 <input className="form-input" type="number" min="0.25" max="24" step="0.25"
                   placeholder="Hrs" value={row.hours} onChange={e => updateRow(row.id, "hours", e.target.value)} />
                 <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
