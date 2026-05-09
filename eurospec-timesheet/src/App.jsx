@@ -238,7 +238,7 @@ function BrandLogo({ size = "normal" }) {
   const big = size === "big";
   return (
     <div style={{ display:"flex", alignItems:"center", gap: big ? 14 : 10 }}>
-      {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 22 : 44, objectFit:"contain" }} />}
+      {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 64 : 44, objectFit:"contain" }} />}
       <div>
         <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 32 : 22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
           Euro<span style={{ color:"#c8a84b" }}>Clock</span>
@@ -352,7 +352,7 @@ function Login({ onLogin }) {
       <div className="login-box" style={{ position:"relative", overflow:"hidden" }}>
         {/* Logo pinned to top-right corner of login box */}
         {LOGO_URL && (
-          <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:0, height:80, objectFit:"contain", borderRadius:"0 8px 0 0" }} />
+          <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:0, height:56, objectFit:"contain", borderRadius:"0 8px 0 0", padding:"6px 8px 4px 4px" }} />
         )}
         <div style={{ marginBottom:6 }}>
           <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
@@ -1067,8 +1067,15 @@ export default function App() {
   return (
     <div className="app">
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-      <header className="header">
-        <BrandLogo />
+      <header className="header" style={{ padding:0, paddingRight:24 }}>
+        <div style={{ display:"flex", alignItems:"stretch", height:"100%" }}>
+          {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height:58, objectFit:"contain", marginRight:12, padding:"6px 10px 6px 12px" }} />}
+          <div style={{ display:"flex", alignItems:"center" }}>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e" }}>
+              Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+            </div>
+          </div>
+        </div>
         <div className="header-right">
           <div className="header-user">
             <strong>{user.name}</strong> · {user.id}
