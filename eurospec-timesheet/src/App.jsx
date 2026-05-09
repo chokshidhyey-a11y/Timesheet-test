@@ -137,7 +137,7 @@ function Spinner() {
 }
 function RefreshBtn({ onClick, loading }) {
   return (
-    <button onClick={onClick} disabled={loading} style={{ display:"flex", alignItems:"center", gap:6, background:"transparent", border:"1px solid #d8dce8", color:"#7a8099", padding:"6px 14px", borderRadius:4, cursor:"pointer", fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:1, textTransform:"uppercase", transition:"all .2s" }}>
+    <button onClick={onClick} disabled={loading} style={{ display:"flex", alignItems:"center", gap:6, background:"transparent", border:"1px solid #d8dce8", color:"#7a8099", padding:"6px 14px", borderRadius:4, cursor:"pointer", fontFamily:"'Helvetica Now',sans-serif", fontSize:12, letterSpacing:1, textTransform:"uppercase", transition:"all .2s" }}>
       <span style={{ display:"inline-block", animation: loading ? "spin 0.8s linear infinite" : "none" }}>↻</span>
       {loading ? "Refreshing..." : "Refresh"}
     </button>
@@ -147,7 +147,7 @@ function RefreshBtn({ onClick, loading }) {
 // ─── Footer ───────────────────────────────────────────────────────────────────
 function Footer() {
   return (
-    <div style={{ textAlign:"right", padding:"12px 32px", fontSize:11, color:"#c4c8d4", fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:1, borderTop:"1px solid #f0f2f5", marginTop:16 }}>
+    <div style={{ textAlign:"right", padding:"12px 32px", fontSize:11, color:"#c4c8d4", fontFamily:"'Helvetica Now',sans-serif", letterSpacing:1, borderTop:"1px solid #f0f2f5", marginTop:16 }}>
       Developed by: Eurospec
     </div>
   );
@@ -161,7 +161,7 @@ function HelpModal({ onClose }) {
         {/* Header */}
         <div style={{ background:"#1a1f2e", borderRadius:"10px 10px 0 0", padding:"24px 28px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <div>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, letterSpacing:2, color:"#c8a84b" }}>{APP_NAME} <span style={{ color:"#fff" }}>Help Center</span></div>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:22, fontWeight:800, letterSpacing:2, color:"#c8a84b" }}>{APP_NAME} <span style={{ color:"#fff" }}>Help Center</span></div>
             <div style={{ fontSize:12, color:"#9aa0b4", marginTop:2 }}>Everything you need to know about using EuroClock</div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"none", color:"#9aa0b4", fontSize:22, cursor:"pointer", padding:"4px 8px" }}>✕</button>
@@ -170,7 +170,7 @@ function HelpModal({ onClose }) {
         <div style={{ padding:"28px" }}>
           {/* Quick Start */}
           <div style={{ marginBottom:28 }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:14, paddingBottom:8, borderBottom:"2px solid #f0f2f5" }}>Quick Start Guide</div>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:14, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:14, paddingBottom:8, borderBottom:"2px solid #f0f2f5" }}>Quick Start Guide</div>
             {[
               { role:"👷 Toolmaker / CNC", color:"#fff8e6", border:"#f0dfa0", steps:["Sign in with your Employee ID or name and password.", "Select the date and day you worked.", "Type or search for your Project Code — suggestions appear as you type.", "Enter the hours worked. Check R&D if the work qualifies.", "Add a comment if needed, then click Submit Entry.", "Toolmaker entries go to your supervisor for approval. CNC entries are auto-approved."] },
               { role:"👔 Supervisor", color:"#f0faf0", border:"#c0e0c0", steps:["Sign in and go to the Review tab.", "You'll see all pending entries from your team.", "Click ✓ Approve to approve, or ✕ to reject an entry.", "Rejected entries can be edited — click Edit on any rejected entry, adjust the hours or details, and re-approve.", "Use the Refresh button to load new entries without reloading the page."] },
@@ -178,7 +178,7 @@ function HelpModal({ onClose }) {
               { role:"🔧 Admin", color:"#fdf0f0", border:"#f0c0c0", steps:["Sign in and go to the Admin tab.", "Add employees with their ID, name, role (Toolmaker or CNC), password, and supervisor.", "Toolmaker → requires supervisor approval. CNC → auto-approved.", "Edit or remove employees at any time.", "You also have access to Finance and Project Codes views."] },
             ].map(s => (
               <div key={s.role} style={{ marginBottom:16, background:s.color, border:`1px solid ${s.border}`, borderRadius:8, padding:"14px 18px" }}>
-                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:700, letterSpacing:1, color:"#1a1f2e", marginBottom:10 }}>{s.role}</div>
+                <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:13, fontWeight:700, letterSpacing:1, color:"#1a1f2e", marginBottom:10 }}>{s.role}</div>
                 <ol style={{ paddingLeft:18, margin:0 }}>
                   {s.steps.map((step, i) => <li key={i} style={{ fontSize:13, color:"#4a5068", marginBottom:6, lineHeight:1.5 }}>{step}</li>)}
                 </ol>
@@ -188,7 +188,7 @@ function HelpModal({ onClose }) {
 
           {/* FAQ */}
           <div style={{ marginBottom:28 }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:14, paddingBottom:8, borderBottom:"2px solid #f0f2f5" }}>Frequently Asked Questions</div>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:14, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:14, paddingBottom:8, borderBottom:"2px solid #f0f2f5" }}>Frequently Asked Questions</div>
             {[
               ["Will I get logged out if I refresh the page?", "No — EuroClock remembers your session across refreshes. You will only be logged out after 10 minutes of inactivity, or when you click Sign Out."],
               ["What is the difference between LB and RD in the export?", "LB (Labour) is regular work hours. RD (Research & Development) is for R&D work. Check the R&D checkbox when logging hours to mark them as RD."],
@@ -205,9 +205,9 @@ function HelpModal({ onClose }) {
 
           {/* Contact */}
           <div style={{ background:"#1a1f2e", borderRadius:8, padding:"20px 24px" }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:14 }}>Contact Us</div>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:14, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:14 }}>Contact Us</div>
             <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-              <div style={{ width:44, height:44, borderRadius:"50%", background:"#c8a84b", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, color:"#1a1f2e", flexShrink:0 }}>DC</div>
+              <div style={{ width:44, height:44, borderRadius:"50%", background:"#c8a84b", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Helvetica Now',sans-serif", fontWeight:800, fontSize:18, color:"#1a1f2e", flexShrink:0 }}>DC</div>
               <div>
                 <div style={{ color:"#fff", fontWeight:600, fontSize:14 }}>{DEV_NAME}</div>
                 <div style={{ color:"#9aa0b4", fontSize:13, marginTop:2 }}>EuroClock Support · Eurospec Tooling & Manufacturing</div>
@@ -227,7 +227,7 @@ function HelpModal({ onClose }) {
 // ─── Help Button ──────────────────────────────────────────────────────────────
 function HelpButton({ onClick }) {
   return (
-    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:6, background:"transparent", border:"1px solid #d8dce8", color:"#7a8099", padding:"6px 14px", borderRadius:4, cursor:"pointer", fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:1, textTransform:"uppercase", transition:"all .2s" }}>
+    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:6, background:"transparent", border:"1px solid #d8dce8", color:"#7a8099", padding:"6px 14px", borderRadius:4, cursor:"pointer", fontFamily:"'Helvetica Now',sans-serif", fontSize:12, letterSpacing:1, textTransform:"uppercase", transition:"all .2s" }}>
       ? Help
     </button>
   );
@@ -240,10 +240,10 @@ function BrandLogo({ size = "normal" }) {
     <div style={{ display:"flex", alignItems:"center", gap: big ? 14 : 10 }}>
       {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 64 : 44, objectFit:"contain" }} />}
       <div>
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 32 : 22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
+        <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize: big ? 32 : 22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
           Euro<span style={{ color:"#c8a84b" }}>Clock</span>
         </div>
-        {big && <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>}
+        {big && <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>}
       </div>
     </div>
   );
@@ -284,7 +284,7 @@ function ProjectInput({ value, onChange, projectCodes }) {
               style={{ padding:"9px 12px", cursor:"pointer", borderBottom:"1px solid #f0f2f5", display:"flex", gap:10, alignItems:"center" }}
               onMouseEnter={e => e.currentTarget.style.background="#f8f9fc"}
               onMouseLeave={e => e.currentTarget.style.background="#fff"}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:"#1a1f2e", letterSpacing:1 }}>{p.code}</span>
+              <span style={{ fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, color:"#1a1f2e", letterSpacing:1 }}>{p.code}</span>
               {p.description && <span style={{ color:"#9aa0b4", fontSize:12 }}>— {p.description}</span>}
             </div>
           ))}
@@ -355,14 +355,14 @@ function Login({ onLogin }) {
           <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:-8, height:56, objectFit:"contain", borderRadius:"0 8px 0 0", padding:"6px 8px 4px 4px" }} />
         )}
         <div style={{ marginBottom:6 }}>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
+          <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
             Euro<span style={{ color:"#c8a84b" }}>Clock</span>
           </div>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>Eurospec Tooling & Manufacturing</div>
+          <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>Eurospec Tooling & Manufacturing</div>
         </div>
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginBottom:28, marginTop:4 }}>{APP_SLOGAN}</div>
+        <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:12, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginBottom:28, marginTop:4 }}>{APP_SLOGAN}</div>
 
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:15, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#1a1f2e", marginBottom:20 }}>Sign In</div>
+        <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:15, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#1a1f2e", marginBottom:20 }}>Sign In</div>
         {error && <div className="login-error">{error}</div>}
 
         <div className="form-group" style={{ marginBottom:14 }}>
@@ -386,12 +386,12 @@ function Login({ onLogin }) {
         </button>
 
         <div style={{ marginTop:20, textAlign:"center" }}>
-          <button onClick={() => setShowHelp(true)} style={{ background:"transparent", border:"none", color:"#9aa0b4", fontSize:12, cursor:"pointer", fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:1 }}>
+          <button onClick={() => setShowHelp(true)} style={{ background:"transparent", border:"none", color:"#9aa0b4", fontSize:12, cursor:"pointer", fontFamily:"'Helvetica Now',sans-serif", letterSpacing:1 }}>
             Need help signing in
           </button>
         </div>
 
-        <div style={{ marginTop:24, textAlign:"center", fontSize:11, color:"#c4c8d4", fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:1 }}>
+        <div style={{ marginTop:24, textAlign:"center", fontSize:11, color:"#c4c8d4", fontFamily:"'Helvetica Now',sans-serif", letterSpacing:1 }}>
           Developed by: Eurospec
         </div>
       </div>
@@ -457,7 +457,7 @@ function ToolmakerForm({ user, showToast, onHelp }) {
           </div>
           <div className="form-group">
             <label className="form-label">Day</label>
-            <div style={{ padding:"10px 12px", background:"#f8f9fc", border:"1px solid #e4e7f0", borderRadius:4, color:"#c8a84b", fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, letterSpacing:1 }}>
+            <div style={{ padding:"10px 12px", background:"#f8f9fc", border:"1px solid #e4e7f0", borderRadius:4, color:"#c8a84b", fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, letterSpacing:1 }}>
               {date ? dayOfDate(date) : "—"}
             </div>
           </div>
@@ -472,7 +472,7 @@ function ToolmakerForm({ user, showToast, onHelp }) {
                 <input className="form-input" type="number" min="0.25" max="24" step="0.25" placeholder="Hrs" value={row.hours} onChange={e => updateRow(row.id, "hours", e.target.value)} />
                 <label style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", userSelect:"none" }}>
                   <input type="checkbox" checked={row.rnd} onChange={e => updateRow(row.id, "rnd", e.target.checked)} style={{ accentColor:"#2a8a2a", width:15, height:15 }} />
-                  <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700, letterSpacing:1.5, padding:"2px 8px", borderRadius:3, transition:"all .2s", whiteSpace:"nowrap", background: row.rnd ? "#eaf5ea" : "#f0f2f5", color: row.rnd ? "#2a8a2a" : "#c4c8d4", border:`1px solid ${row.rnd ? "#c0e0c0" : "#e4e7f0"}` }}>R&D</span>
+                  <span style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:11, fontWeight:700, letterSpacing:1.5, padding:"2px 8px", borderRadius:3, transition:"all .2s", whiteSpace:"nowrap", background: row.rnd ? "#eaf5ea" : "#f0f2f5", color: row.rnd ? "#2a8a2a" : "#c4c8d4", border:`1px solid ${row.rnd ? "#c0e0c0" : "#e4e7f0"}` }}>R&D</span>
                 </label>
                 {jobs.length > 1 ? <button className="btn-icon" onClick={() => removeRow(row.id)}>✕</button> : <span />}
               </div>
@@ -486,8 +486,8 @@ function ToolmakerForm({ user, showToast, onHelp }) {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr" }}>
             {[["Regular Hrs", regHrs, "#c8a84b"], ["R&D Hrs", rndHrs, "#2a8a2a"], ["Total Hrs", totalHrs, "#1a1f2e"]].map(([label, val, color]) => (
               <div key={label} style={{ padding:"10px 14px", borderRight: label !== "Total Hrs" ? "1px solid #e4e7f0" : "none" }}>
-                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#9aa0b4", marginBottom:4 }}>{label}</div>
-                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color }}>{val.toFixed(2)}</div>
+                <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#9aa0b4", marginBottom:4 }}>{label}</div>
+                <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:22, fontWeight:800, color }}>{val.toFixed(2)}</div>
               </div>
             ))}
           </div>
@@ -515,7 +515,7 @@ function ToolmakerForm({ user, showToast, onHelp }) {
                   {myEntries.map(e => (
                     <tr key={e.id}>
                       <td>{e.date}</td><td>{e.day}</td>
-                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, letterSpacing:1, color:"#1a1f2e" }}>{e.job}</td>
+                      <td style={{ fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, letterSpacing:1, color:"#1a1f2e" }}>{e.job}</td>
                       <td>{e.hours}</td>
                       <td>{e.rnd ? <span className="rnd-badge">R&D</span> : <span style={{ color:"#9aa0b4", fontSize:11 }}>Regular</span>}</td>
                       <td style={{ color:"#9aa0b4", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.notes || "—"}</td>
@@ -581,7 +581,7 @@ function SupervisorView({ user, showToast, onHelp }) {
       {editEntry && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:"#fff", borderRadius:8, width:"100%", maxWidth:480, padding:28, boxShadow:"0 20px 60px rgba(0,0,0,0.15)" }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#1a1f2e", marginBottom:4 }}>Edit & Approve Entry</div>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:16, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#1a1f2e", marginBottom:4 }}>Edit & Approve Entry</div>
             <div style={{ fontSize:12, color:"#9aa0b4", marginBottom:20 }}>Make corrections then approve. Entry will go directly to Finance.</div>
             <div className="form-group" style={{ marginBottom:14 }}>
               <label className="form-label">Employee</label>
@@ -647,7 +647,7 @@ function SupervisorView({ user, showToast, onHelp }) {
                     <tr key={e.id}>
                       <td style={{ color:"#1a1f2e" }}>{e.employee_name}</td>
                       <td>{e.date}</td><td>{e.day}</td>
-                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, letterSpacing:1, color:"#1a1f2e" }}>{e.job}</td>
+                      <td style={{ fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, letterSpacing:1, color:"#1a1f2e" }}>{e.job}</td>
                       <td>{e.hours}</td>
                       <td>{e.rnd ? <span className="rnd-badge">R&D</span> : <span style={{ color:"#9aa0b4", fontSize:11 }}>Regular</span>}</td>
                       <td style={{ color:"#9aa0b4", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.notes || "—"}</td>
@@ -773,7 +773,7 @@ function FinanceDashboard({ onHelp }) {
 
       <div className="card">
         <div className="card-title">Epicor Export Preview</div>
-        <div style={{ marginBottom:12, padding:"8px 12px", background:"#fffdf5", border:"1px solid #f0dfa0", borderRadius:4, fontSize:12, color:"#b8860b", fontFamily:"'Barlow Condensed',sans-serif" }}>
+        <div style={{ marginBottom:12, padding:"8px 12px", background:"#fffdf5", border:"1px solid #f0dfa0", borderRadius:4, fontSize:12, color:"#b8860b", fontFamily:"'Helvetica Now',sans-serif" }}>
           Project Code · Date of Work · Employee Code · Date Seq · Hours Work · Project Part · Project Cost (LB/RD) · Comment · Plant
         </div>
         {loading ? <Spinner /> : withSeq.length === 0
@@ -784,15 +784,15 @@ function FinanceDashboard({ onHelp }) {
                 <tbody>
                   {withSeq.map(e => (
                     <tr key={e.id}>
-                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:"#1a1f2e" }}>{e.job}</td>
+                      <td style={{ fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, color:"#1a1f2e" }}>{e.job}</td>
                       <td>{e.date}</td>
-                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", color:"#9aa0b4" }}>{e.employee_id}</td>
-                      <td style={{ textAlign:"center", fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:"#c8a84b" }}>{e.dateSeq}</td>
+                      <td style={{ fontFamily:"'Helvetica Now',sans-serif", color:"#9aa0b4" }}>{e.employee_id}</td>
+                      <td style={{ textAlign:"center", fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, color:"#c8a84b" }}>{e.dateSeq}</td>
                       <td>{e.hours}</td>
                       <td style={{ color:"#c4c8d4" }}>—</td>
-                      <td><span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700, letterSpacing:1, padding:"2px 8px", borderRadius:3, background: e.rnd ? "#eaf5ea" : "#fff8e6", color: e.rnd ? "#2a8a2a" : "#b8860b", border:`1px solid ${e.rnd ? "#c0e0c0" : "#f0dfa0"}` }}>{e.rnd ? "RD" : "LB"}</span></td>
+                      <td><span style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:11, fontWeight:700, letterSpacing:1, padding:"2px 8px", borderRadius:3, background: e.rnd ? "#eaf5ea" : "#fff8e6", color: e.rnd ? "#2a8a2a" : "#b8860b", border:`1px solid ${e.rnd ? "#c0e0c0" : "#f0dfa0"}` }}>{e.rnd ? "RD" : "LB"}</span></td>
                       <td style={{ color:"#9aa0b4", maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.notes || "—"}</td>
-                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:"#9aa0b4" }}>PET</td>
+                      <td style={{ fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, color:"#9aa0b4" }}>PET</td>
                     </tr>
                   ))}
                 </tbody>
@@ -863,7 +863,7 @@ function ProjectCodesManager({ showToast, onHelp }) {
               <tbody>
                 {codes.map(p => (
                   <tr key={p.code}>
-                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, color:"#1a1f2e", letterSpacing:1 }}>{p.code}</td>
+                    <td style={{ fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, fontSize:15, color:"#1a1f2e", letterSpacing:1 }}>{p.code}</td>
                     <td style={{ color:"#4a5068" }}>{p.description || "—"}</td>
                     <td><button className="btn btn-sm btn-danger" onClick={() => remove(p.code)}>Remove</button></td>
                   </tr>
@@ -991,10 +991,10 @@ function AdminView({ showToast, onHelp }) {
                   const role = emp.category || emp.role;
                   return (
                     <tr key={emp.id}>
-                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:"#9aa0b4" }}>{emp.id}</td>
+                      <td style={{ fontFamily:"'Helvetica Now',sans-serif", fontWeight:700, color:"#9aa0b4" }}>{emp.id}</td>
                       <td style={{ color:"#1a1f2e" }}>{emp.name}</td>
                       <td>
-                        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase", color: roleColor[role] || "#1a1f2e" }}>{role}</span>
+                        <span style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase", color: roleColor[role] || "#1a1f2e" }}>{role}</span>
                         {role === "cnc" && <span style={{ marginLeft:6, fontSize:10, color:"#9aa0b4" }}>auto</span>}
                       </td>
                       <td style={{ color:"#9aa0b4" }}>{sup ? sup.name : "—"}</td>
@@ -1071,7 +1071,7 @@ export default function App() {
         <div style={{ display:"flex", alignItems:"stretch", height:"100%" }}>
           {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height:58, objectFit:"contain", marginRight:12, padding:"6px 10px 6px 12px" }} />}
           <div style={{ display:"flex", alignItems:"center" }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e" }}>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e" }}>
               Euro<span style={{ color:"#c8a84b" }}>Clock</span>
             </div>
           </div>
@@ -1079,7 +1079,7 @@ export default function App() {
         <div className="header-right">
           <div className="header-user">
             <strong>{user.name}</strong> · {user.id}
-            {(user.category === "cnc" || user.role === "cnc") && <span style={{ marginLeft:8, fontSize:10, background:"#e8f4ff", color:"#2a6a9a", padding:"1px 6px", borderRadius:3, fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:1 }}>CNC</span>}
+            {(user.category === "cnc" || user.role === "cnc") && <span style={{ marginLeft:8, fontSize:10, background:"#e8f4ff", color:"#2a6a9a", padding:"1px 6px", borderRadius:3, fontFamily:"'Helvetica Now',sans-serif", letterSpacing:1 }}>CNC</span>}
           </div>
           <button className="btn-logout" onClick={handleLogout}>Sign Out</button>
         </div>
