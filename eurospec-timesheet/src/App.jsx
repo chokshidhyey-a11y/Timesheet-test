@@ -352,7 +352,7 @@ function Login({ onLogin }) {
       <div className="login-box" style={{ position:"relative", overflow:"hidden" }}>
         {/* Logo pinned to top-right corner of login box */}
         {LOGO_URL && (
-          <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:20, right:0, height:56, objectFit:"contain", borderRadius:"0 8px 0 0", padding:"6px 8px 4px 4px" }} />
+          <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:0, height:56, objectFit:"contain", borderRadius:"0 8px 0 0", padding:"6px 8px 4px 4px" }} />
         )}
         <div style={{ marginBottom:6 }}>
           <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
