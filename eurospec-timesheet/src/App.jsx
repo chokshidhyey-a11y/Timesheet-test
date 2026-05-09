@@ -4,14 +4,35 @@ import "./App.css";
 // ─── Config ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://dtnrkerxtjpjfomtotcs.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bnJrZXJ4dGpwamZvbXRvdGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMzUzNDIsImV4cCI6MjA5MzgxMTM0Mn0.0bfZaNIOTUcM8EfTwUR-gbESwYkMFBnFj0Kc1NHOUEo";
-const LOGO_URL    = "https://th.bing.com/th/id/R.287e4b39e66019910c6cd8fdca93e03e?rik=4sgN%2bWBn06yxMA&riu=http%3a%2f%2feurospectooling.com%2fwp-content%2fuploads%2f2011%2f07%2flogo3.png&ehk=31Z3kUJnRQ6VGbV%2f2QzOyAQA3LT1vnBCXxMM1b0xuAk%3d&risl=&pid=ImgRaw&r=0"; // ← paste your logo URL here
+const LOGO_URL    = "https://th.bing.com/th/id/R.287e4b39e66019910c6cd8fdca93e03e?rik=4sgN%2bWBn06yxMA&riu=http%3a%2f%2feurospectooling.com%2fwp-content%2fuploads%2f2011%2f07%2flogo3.png&ehk=31Z3kUJnRQ6VGbV%2f2QzOyAQA3LT1vnBCXxMM1b0xuAk%3d&risl=&pid=ImgRaw&r=0";
 const INACTIVITY_MS = 10 * 60 * 1000;
 const APP_NAME    = "EuroClock";
 const APP_SLOGAN  = "Log it. Approve it. Export it.";
 const DEV_NAME    = "Dhyey Chokshi (Software Developer)";
 const DEV_EMAIL   = "dchokshi@eurospectooling.com";
 
-// ─── Supabase ─────────────────────────────────────────────────────────────────
+// ─── Supabase Auth ────────────────────────────────────────────────────────────
+const auth = {
+  signIn: async (empId, password) => {
+    const email = empId.toLowerCase() + "@euroclock.eurospec.internal";
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error_description || data.error);
+    return data; // { access_token, user }
+  },
+  signOut: async (token) => {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+  }
+};
+
+// ─── Supabase DB ──────────────────────────────────────────────────────────────
 const db = {
   get: async (table, params = "") => {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
@@ -262,17 +283,32 @@ function Login({ onLogin }) {
   const submit = async () => {
     setError(""); setLoading(true);
     try {
-      const query = empId.trim()
-        ? `id=ilike.${encodeURIComponent(empId.trim())}`
-        : `name=ilike.${encodeURIComponent(empName.trim())}`;
-      const rows = await db.get("employees", query);
+      // Step 1: resolve employee ID from name if needed
+      let resolvedId = empId.trim();
+      if (!resolvedId && empName.trim()) {
+        const rows = await db.get("employees", `name=ilike.${encodeURIComponent(empName.trim())}`);
+        if (!rows || rows.length === 0) { setError("Employee not found."); return; }
+        resolvedId = rows[0].id;
+        setEmpId(resolvedId);
+      }
+      if (!resolvedId) { setError("Please enter your Employee ID or name."); return; }
+
+      // Step 2: Supabase Auth sign in (encrypted password check)
+      let authData;
+      try {
+        authData = await auth.signIn(resolvedId, password);
+      } catch {
+        setError("Incorrect password."); return;
+      }
+
+      // Step 3: load employee profile
+      const rows = await db.get("employees", `id=ilike.${encodeURIComponent(resolvedId)}`);
       if (!rows || rows.length === 0) { setError("Employee not found."); return; }
       const emp = rows[0];
-      if (emp.password !== password) { setError("Incorrect password."); return; }
-      const user = { id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor, category: emp.category || emp.role };
+      const user = { id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor, category: emp.category || emp.role, token: authData.access_token };
       saveSession(user);
       onLogin(user);
-    } catch { setError("Connection error. Please try again."); }
+    } catch (e) { setError("Connection error. Please try again."); }
     finally { setLoading(false); }
   };
 
@@ -966,7 +1002,10 @@ export default function App() {
 
   const resetTimer = useCallback(() => {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    inactivityTimer.current = setTimeout(() => { clearSession(); setUser(null); setTab(null); }, INACTIVITY_MS);
+    inactivityTimer.current = setTimeout(async () => {
+      if (user?.token) { try { await auth.signOut(user.token); } catch {} }
+      clearSession(); setUser(null); setTab(null);
+    }, INACTIVITY_MS);
   }, []);
 
   useEffect(() => {
@@ -978,7 +1017,11 @@ export default function App() {
   }, [user, resetTimer]);
 
   const handleLogin  = emp => { setUser(emp); saveSession(emp); setTab(tabMap[emp.role]?.[0]?.id || "log"); };
-  const handleLogout = () => { clearSession(); setUser(null); setTab(null); if (inactivityTimer.current) clearTimeout(inactivityTimer.current); };
+  const handleLogout = async () => {
+    if (user?.token) { try { await auth.signOut(user.token); } catch {} }
+    clearSession(); setUser(null); setTab(null);
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+  };
 
   if (!user) return <div className="app"><Login onLogin={handleLogin} /></div>;
 
