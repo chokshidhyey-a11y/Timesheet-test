@@ -32,6 +32,29 @@ const auth = {
   }
 };
 
+// ─── Create auth user via Supabase RPC ───────────────────────────────────────
+const createAuthUser = async (empId, password) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_employee_auth_user`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ emp_id: empId, emp_password: password })
+  });
+  return res.ok;
+};
+
+// Update auth user password
+const updateAuthPassword = async (empId, newPassword) => {
+  // Get user's email
+  const email = empId.toLowerCase() + "@euroclock.eurospec.internal";
+  // Use admin API to update password - we call our helper function
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/update_employee_password`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ emp_id: empId, new_password: newPassword })
+  });
+  return res.ok;
+};
+
 // ─── Supabase DB ──────────────────────────────────────────────────────────────
 const db = {
   get: async (table, params = "") => {
@@ -865,15 +888,20 @@ function AdminView({ showToast, onHelp }) {
     setError("");
     if (!form.id || !form.name || !form.password) { setError("ID, Name, and Password are required."); return; }
     if (!editing && employees.find(e => e.id === form.id)) { setError("Employee ID already exists."); return; }
-    const payload = { name: form.name, role: form.role, category: form.category || form.role, password: form.password, supervisor: form.supervisor || null };
+    const payload = { name: form.name, role: form.role, category: form.category || form.role, password: form.password, supervisor: form.supervisor || null, auth_email: form.id.toLowerCase() + "@euroclock.eurospec.internal" };
     if (editing) {
       await db.patch("employees", `id=eq.${editing}`, payload);
       setEmployees(prev => prev.map(e => e.id === editing ? { ...e, ...payload } : e));
+      // Update password in auth if changed
+      await updateAuthPassword(editing, form.password);
+      showToast("Employee updated — password synced.");
     } else {
       await db.post("employees", { id: form.id, ...payload });
       setEmployees(prev => [...prev, { id: form.id, ...payload }]);
+      // Create encrypted auth user automatically
+      const ok = await createAuthUser(form.id, form.password);
+      showToast(ok ? "Employee added — login created." : "Employee added (auth setup failed — run SQL manually).");
     }
-    showToast(editing ? "Employee updated." : "Employee added.");
     setForm({ id:"", name:"", role:"toolmaker", category:"toolmaker", password:"", supervisor:"" });
     setEditing(null);
   };
