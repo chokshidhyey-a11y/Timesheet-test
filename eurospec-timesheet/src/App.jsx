@@ -237,15 +237,13 @@ function HelpButton({ onClick }) {
 function BrandLogo({ size = "normal" }) {
   const big = size === "big";
   return (
-    <div style={{ display:"flex", alignItems:"center", gap: big ? 16 : 10, flexDirection: big ? "column" : "row" }}>
-      <div style={{ display:"flex", alignItems:"center", gap: big ? 16 : 10 }}>
-        <div>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 32 : 20, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
-            Euro<span style={{ color:"#c8a84b" }}>Clock</span>
-          </div>
-          {big && <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>}
+    <div style={{ display:"flex", alignItems:"center", gap: big ? 14 : 10 }}>
+      {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 64 : 44, objectFit:"contain" }} />}
+      <div>
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 32 : 22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
+          Euro<span style={{ color:"#c8a84b" }}>Clock</span>
         </div>
-        {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 72 : 40, objectFit:"contain" }} />}
+        {big && <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>}
       </div>
     </div>
   );
@@ -351,9 +349,16 @@ function Login({ onLogin }) {
   return (
     <div className="login-wrap">
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-      <div className="login-box">
-        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:6 }}>
-          <BrandLogo size="big" />
+      <div className="login-box" style={{ position:"relative", overflow:"hidden" }}>
+        {/* Logo pinned to top-right corner of login box */}
+        {LOGO_URL && (
+          <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:0, height:80, objectFit:"contain", borderRadius:"0 8px 0 0" }} />
+        )}
+        <div style={{ marginBottom:6 }}>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
+            Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+          </div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>
         </div>
         <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginBottom:28, marginTop:4 }}>{APP_SLOGAN}</div>
 
