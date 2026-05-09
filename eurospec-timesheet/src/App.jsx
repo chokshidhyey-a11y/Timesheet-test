@@ -240,7 +240,7 @@ function BrandLogo({ size = "normal" }) {
     <div style={{ display:"flex", alignItems:"center", gap: big ? 14 : 10 }}>
       {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 64 : 44, objectFit:"contain" }} />}
       <div>
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 32 : 22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 52 : 22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
           Euro<span style={{ color:"#c8a84b" }}>Clock</span>
         </div>
         {big && <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>}
