@@ -913,6 +913,941 @@ function Login({ onLogin, onForgot }) {
         setEmpId(resolvedId);
       }
       if (!resolvedId) { setError("Please enter your Employee ID or name."); return; }
+        // Must have a password entered
+      if (!password) { setError("Please enter your password."); return; }
+
+      // Load employee profile
+      const empRows = await db.get("employees", `id=ilike.${encodeURIComponent(resolvedId)}`);
+      if (!empRows || empRows.length === 0) { setError("Employee not found."); return; }
+      const emp = empRows[0];
+
+      // Try Supabase Auth first (encrypted), fall back to plain text
+      let authToken = null;
+      try {
+        const authData = await auth.signIn(resolvedId, password);
+        authToken = authData.access_token;
+      } catch {
+        if (!emp.password || emp.password !== password) {
+          setError("Incorrect password."); return;
+        }
+      }
+
+      const user = { id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor, category: emp.category || emp.role, token: authToken, mustChangePassword: emp.must_change_password };
+      saveSession(user); onLogin(user);eRef, useCallback } from "react";
+import "./App.css";
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://dtnrkerxtjpjfomtotcs.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bnJrZXJ4dGpwamZvbXRvdGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMzUzNDIsImV4cCI6MjA5MzgxMTM0Mn0.0bfZaNIOTUcM8EfTwUR-gbESwYkMFBnFj0Kc1NHOUEo";
+const LOGO_URL     = "https://eurospectooling.com/wp-content/uploads/2024/03/logo-e1711467462820.png";
+const INACTIVITY_MS = 10 * 60 * 1000;
+const APP_SLOGAN   = "Log it. Approve it. Export it.";
+const DEV_NAME     = "Dhyey Chokshi (Software Developer)";
+const DEV_EMAIL    = "dchokshi@eurospectooling.com";
+const HIGHER_ROLES = ["supervisor", "finance", "admin"];
+
+// ─── Supabase Auth ────────────────────────────────────────────────────────────
+const auth = {
+  signIn: async (empId, password) => {
+    const email = empId.toLowerCase() + "@euroclock.eurospec.internal";
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error_description || data.error);
+    return data;
+  },
+  signOut: async (token) => {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+  },
+  // Send reset email to work email via Supabase
+  resetPassword: async (workEmail) => {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: workEmail })
+    });
+    return res.ok;
+  },
+  // Update password using access token
+  updatePassword: async (token, newPassword) => {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword })
+    });
+    return res.ok;
+  }
+};
+
+const rpc = async (fn, params) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(params)
+  });
+  return res.ok;
+};
+
+// ─── Supabase DB ──────────────────────────────────────────────────────────────
+const db = {
+  get: async (table, params = "") => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }
+    });
+    return res.json();
+  },
+  post: async (table, body) => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  },
+  patch: async (table, match, body) => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  },
+  delete: async (table, match) => {
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 9);
+const today = () => new Date().toISOString().split("T")[0];
+const dayOfDate = (d) => {
+  const day = new Date(d + "T12:00:00").getDay();
+  return ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][day];
+};
+const computeSeq = (entries) => {
+  const totals = {};
+  entries.forEach(e => { const k = `${e.employee_id}|${e.date}|${e.job}`; totals[k] = (totals[k] || 0) + 1; });
+  const counts = {};
+  return entries.map(e => {
+    const k = `${e.employee_id}|${e.date}|${e.job}`;
+    counts[k] = (counts[k] || 0) + 1;
+    return { ...e, dateSeq: totals[k] > 1 ? counts[k] : "" };
+  });
+};
+const getWeekRange = (offset = 0) => {
+  const now = new Date();
+  const diff = (now.getDay() === 0 ? -6 : 1 - now.getDay()) + offset * 7;
+  const mon = new Date(now); mon.setDate(now.getDate() + diff);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { from: mon.toISOString().split("T")[0], to: sun.toISOString().split("T")[0] };
+};
+const getMonthRange = (offset = 0) => {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const last  = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+  return { from: first.toISOString().split("T")[0], to: last.toISOString().split("T")[0] };
+};
+const SESSION_KEY = "es_user";
+const saveSession  = (u) => sessionStorage.setItem(SESSION_KEY, JSON.stringify(u));
+const loadSession  = ()  => { try { const v = sessionStorage.getItem(SESSION_KEY); return v ? JSON.parse(v) : null; } catch { return null; } };
+const clearSession = ()  => sessionStorage.removeItem(SESSION_KEY);
+
+// ─── Shared UI ────────────────────────────────────────────────────────────────
+function Toast({ msg, type, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
+  return <div className={`toast${type === "error" ? " error" : ""}`}>{msg}</div>;
+}
+function Spinner() {
+  return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:60 }}>
+      <div style={{ width:32, height:32, border:"3px solid #e4e7f0", borderTop:"3px solid #c8a84b", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+function RefreshBtn({ onClick, loading }) {
+  return (
+    <button onClick={onClick} disabled={loading} className="refresh-btn">
+      <span style={{ display:"inline-block", animation: loading ? "spin 0.8s linear infinite" : "none" }}>↻</span>
+      <span className="refresh-label">{loading ? "Refreshing..." : "Refresh"}</span>
+    </button>
+  );
+}
+function Footer() {
+  return (
+    <div style={{ textAlign:"right", padding:"12px 16px", fontSize:11, color:"#c4c8d4", letterSpacing:1, borderTop:"1px solid #f0f2f5", marginTop:16 }}>
+      Developed by: Eurospec
+    </div>
+  );
+}
+function HelpButton({ onClick }) {
+  return <button onClick={onClick} className="help-btn">? Help</button>;
+}
+
+// ─── Help Modal ───────────────────────────────────────────────────────────────
+function HelpModal({ onClose }) {
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:12 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background:"#fff", borderRadius:10, width:"100%", maxWidth:680, maxHeight:"90vh", overflow:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.18)" }}>
+        <div style={{ background:"#1a1f2e", borderRadius:"10px 10px 0 0", padding:"20px 24px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:800, color:"#c8a84b" }}>EuroClock <span style={{ color:"#fff" }}>Help Center</span></div>
+            <div style={{ fontSize:12, color:"#9aa0b4", marginTop:2 }}>Everything you need to know</div>
+          </div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:"#9aa0b4", fontSize:22, cursor:"pointer", padding:"4px 8px" }}>✕</button>
+        </div>
+        <div style={{ padding:"20px" }}>
+          {[
+            { role:"👷 Toolmaker / CNC", color:"#fff8e6", border:"#f0dfa0", steps:["Sign in with your Employee ID and password.","On first login you'll be asked to set a new password.","Select the date and search for your Project Code.","Enter hours. Check R&D if applicable. Add a comment if needed.","Tap Submit. Toolmaker entries go to your supervisor; CNC entries auto-approve."] },
+            { role:"👔 Supervisor", color:"#f0faf0", border:"#c0e0c0", steps:["Sign in — you'll set a new password on first login.","Go to Review tab to see pending entries from your team.","Tap ✓ to approve, ✕ to reject, or Edit to fix and approve.","Use Refresh to load new entries without reloading the page.","Forgot your password? Use the Forgot Password link on the login screen."] },
+            { role:"💼 Finance", color:"#f0f4ff", border:"#b0c4f0", steps:["Sign in — set a new password on first login.","Use quick filters or custom date range.","Export Epicor CSV downloads in the exact format needed.","Go to Project Codes tab to manage codes for the team.","Forgot password? Use the reset link — it goes to your work email."] },
+            { role:"🔧 Admin", color:"#fdf0f0", border:"#f0c0c0", steps:["Add employees with their ID, name, role, and a temporary password.","All employees must change their password on first login.","For supervisors/finance/admin, add their work email for password resets.","Edit passwords anytime — changes sync immediately."] },
+          ].map(s => (
+            <div key={s.role} style={{ marginBottom:12, background:s.color, border:`1px solid ${s.border}`, borderRadius:8, padding:"12px 16px" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#1a1f2e", marginBottom:8 }}>{s.role}</div>
+              <ol style={{ paddingLeft:18, margin:0 }}>
+                {s.steps.map((step, i) => <li key={i} style={{ fontSize:13, color:"#4a5068", marginBottom:4, lineHeight:1.5 }}>{step}</li>)}
+              </ol>
+            </div>
+          ))}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:10, paddingBottom:6, borderBottom:"2px solid #f0f2f5" }}>FAQ</div>
+            {[
+              ["Will I be logged out if I refresh?","No — your session persists. You'll only be logged out after 10 minutes of inactivity."],
+              ["What is LB vs RD?","LB = regular labour hours. RD = Research & Development. Check the R&D box when logging."],
+              ["I forgot my password — what do I do?","On the login screen click Forgot Password. Supervisors/Finance/Admin get a reset email. Toolmakers/CNC ask their admin to reset it."],
+              ["What is Date Seq in the export?","Only filled when you log multiple entries for the same project on the same day."],
+            ].map(([q, a]) => (
+              <div key={q} style={{ marginBottom:10, padding:"10px 14px", background:"#f8f9fc", borderRadius:6, border:"1px solid #e4e7f0" }}>
+                <div style={{ fontWeight:600, fontSize:13, color:"#1a1f2e", marginBottom:4 }}>{q}</div>
+                <div style={{ fontSize:13, color:"#7a8099", lineHeight:1.5 }}>{a}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background:"#1a1f2e", borderRadius:8, padding:"18px 20px" }}>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:12 }}>Contact Us</div>
+            <div style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+              <div style={{ width:44, height:44, borderRadius:"50%", background:"#c8a84b", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:16, color:"#1a1f2e", flexShrink:0 }}>DC</div>
+              <div>
+                <div style={{ color:"#fff", fontWeight:600, fontSize:14 }}>{DEV_NAME}</div>
+                <div style={{ color:"#9aa0b4", fontSize:12, marginTop:2 }}>EuroClock · Eurospec Tooling & Manufacturing</div>
+                <a href={`mailto:${DEV_EMAIL}`} style={{ color:"#c8a84b", fontSize:13, marginTop:4, display:"block", textDecoration:"none" }}>📧 {DEV_EMAIL}</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CHANGE PASSWORD SCREEN ───────────────────────────────────────────────────
+function ChangePasswordScreen({ user, onDone, showToast }) {
+  const [newPass, setNewPass]     = useState("");
+  const [confirm, setConfirm]     = useState("");
+  const [error, setError]         = useState("");
+  const [saving, setSaving]       = useState(false);
+  const isHigher = HIGHER_ROLES.includes(user.role);
+
+  const submit = async () => {
+    setError("");
+    if (newPass.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (newPass !== confirm) { setError("Passwords don't match."); return; }
+    setSaving(true);
+    try {
+      // Use RPC with admin privileges to update encrypted password
+      const ok = await rpc("update_employee_password", { emp_id: user.id, new_password: newPass });
+      if (!ok) throw new Error("RPC update failed");
+      // Update plain text copy in employees table (for admin visibility)
+      await db.patch("employees", `id=eq.${user.id}`, { password: newPass, must_change_password: false });
+      showToast("Password updated successfully!");
+      onDone();
+    } catch { setError("Failed to update password. Please try again."); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-box" style={{ position:"relative", overflow:"hidden" }}>
+        {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:0, height:56, objectFit:"contain", borderRadius:"0 8px 0 0", padding:"6px 8px 4px 4px" }} />}
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", marginBottom:4 }}>
+          Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+        </div>
+        <div style={{ marginBottom:24 }}>
+          <div style={{ background:"#fff8e6", border:"1px solid #f0dfa0", borderRadius:6, padding:"12px 14px" }}>
+            <div style={{ fontWeight:700, fontSize:14, color:"#b8860b", marginBottom:4 }}>🔐 Set Your Password</div>
+            <div style={{ fontSize:13, color:"#7a8099", lineHeight:1.5 }}>
+              Welcome, <strong>{user.name}</strong>! This is your first login.
+              Please set a personal password to continue.
+              {isHigher && <span> Your admin can also send a reset link to your work email if you ever forget it.</span>}
+            </div>
+          </div>
+        </div>
+        {error && <div className="login-error">{error}</div>}
+        <div className="form-group" style={{ marginBottom:14 }}>
+          <label className="form-label">New Password</label>
+          <input className="form-input" type="password" placeholder="Min 6 characters" value={newPass}
+            onChange={e => setNewPass(e.target.value)} style={{ fontSize:16 }} />
+        </div>
+        <div className="form-group" style={{ marginBottom:24 }}>
+          <label className="form-label">Confirm Password</label>
+          <input className="form-input" type="password" placeholder="Re-enter password" value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && submit()} style={{ fontSize:16 }} />
+        </div>
+        <button className="btn btn-primary" style={{ width:"100%", padding:"14px", fontSize:15 }} onClick={submit} disabled={saving}>
+          {saving ? "Saving..." : "Set Password & Continue →"}
+        </button>
+        <div style={{ marginTop:16, padding:"10px 12px", background:"#f8f9fc", borderRadius:6, fontSize:12, color:"#9aa0b4" }}>
+          💡 Choose something you'll remember. You can always contact your admin if you get locked out.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FORGOT PASSWORD SCREEN ───────────────────────────────────────────────────
+function ForgotPasswordScreen({ onBack }) {
+  const [empId, setEmpId]   = useState("");
+  const [email, setEmail]   = useState("");
+  const [sent, setSent]     = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+  const [mode, setMode]     = useState(null); // "email" or "admin"
+
+  const checkEmployee = async () => {
+    setError("");
+    if (!empId.trim()) { setError("Please enter your Employee ID."); return; }
+    setLoading(true);
+    try {
+      const rows = await db.get("employees", `id=ilike.${encodeURIComponent(empId.trim())}`);
+      if (!rows || rows.length === 0) { setError("Employee not found."); return; }
+      const emp = rows[0];
+      if (HIGHER_ROLES.includes(emp.role) && emp.work_email) {
+        setMode("email");
+        setEmail(emp.work_email);
+      } else {
+        setMode("admin");
+      }
+    } catch { setError("Connection error. Try again."); }
+    finally { setLoading(false); }
+  };
+
+  const sendReset = async () => {
+    setLoading(true);
+    try {
+      await auth.resetPassword(email);
+      setSent(true);
+    } catch { setError("Failed to send reset email. Contact your admin."); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-box">
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", marginBottom:20 }}>
+          Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+        </div>
+
+        {sent ? (
+          <div>
+            <div style={{ background:"#eaf5ea", border:"1px solid #c0e0c0", borderRadius:8, padding:"16px", marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:"#2a8a2a", marginBottom:6 }}>✓ Reset Email Sent</div>
+              <div style={{ fontSize:13, color:"#4a5068", lineHeight:1.5 }}>
+                A password reset link has been sent to <strong>{email}</strong>. Check your inbox and follow the link to reset your password.
+              </div>
+            </div>
+            <button className="btn btn-primary" style={{ width:"100%" }} onClick={onBack}>Back to Sign In</button>
+          </div>
+        ) : mode === "admin" ? (
+          <div>
+            <div style={{ background:"#fff8e6", border:"1px solid #f0dfa0", borderRadius:8, padding:"16px", marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:"#b8860b", marginBottom:6 }}>Contact Your Admin</div>
+              <div style={{ fontSize:13, color:"#4a5068", lineHeight:1.5 }}>
+                Password resets for Toolmakers and CNC operators are handled by your Admin. Please ask them to reset your password in the Admin panel.
+              </div>
+            </div>
+            <button className="btn btn-primary" style={{ width:"100%" }} onClick={onBack}>Back to Sign In</button>
+          </div>
+        ) : mode === "email" ? (
+          <div>
+            <div style={{ fontSize:13, color:"#7a8099", marginBottom:16 }}>
+              We'll send a reset link to your work email:
+            </div>
+            <div style={{ padding:"12px 14px", background:"#f8f9fc", border:"1px solid #e4e7f0", borderRadius:6, marginBottom:20, fontWeight:600, color:"#1a1f2e" }}>
+              📧 {email}
+            </div>
+            {error && <div className="login-error">{error}</div>}
+            <button className="btn btn-primary" style={{ width:"100%", padding:"14px", marginBottom:12 }} onClick={sendReset} disabled={loading}>
+              {loading ? "Sending..." : "Send Reset Link"}
+            </button>
+            <button className="btn btn-secondary" style={{ width:"100%" }} onClick={onBack}>Cancel</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize:14, color:"#1a1f2e", marginBottom:16, fontWeight:600 }}>Forgot Password</div>
+            <div style={{ fontSize:13, color:"#7a8099", marginBottom:16 }}>Enter your Employee ID and we'll help you reset your password.</div>
+            {error && <div className="login-error">{error}</div>}
+            <div className="form-group" style={{ marginBottom:16 }}>
+              <label className="form-label">Employee ID</label>
+              <input className="form-input" placeholder="e.g. E001" value={empId}
+                onChange={e => setEmpId(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && checkEmployee()}
+                style={{ fontSize:16 }} />
+            </div>
+            <button className="btn btn-primary" style={{ width:"100%", padding:"14px", marginBottom:12 }} onClick={checkEmployee} disabled={loading}>
+              {loading ? "Checking..." : "Continue →"}
+            </button>
+            <button className="btn btn-secondary" style={{ width:"100%" }} onClick={onBack}>Back to Sign In</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── PROJECT CODE INPUT ───────────────────────────────────────────────────────
+function ProjectInput({ value, onChange, projectCodes }) {
+  const [open, setOpen]   = useState(false);
+  const [query, setQuery] = useState(value);
+  const ref               = useRef(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const matches = projectCodes.filter(p =>
+    !query || p.code.includes(query) || (p.description || "").toLowerCase().includes(query.toLowerCase())
+  );
+
+  const select = (code) => { onChange(code); setQuery(code); setOpen(false); };
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <input className="form-input" placeholder="Type or search project code..."
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        autoComplete="off" style={{ fontSize:16 }}
+      />
+      {open && matches.length > 0 && (
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, background:"#fff", border:"1px solid #d8dce8", borderRadius:4, boxShadow:"0 4px 12px rgba(0,0,0,0.12)", maxHeight:240, overflowY:"auto" }}>
+          {matches.slice(0, 50).map(p => (
+            <div key={p.code} onMouseDown={() => select(p.code)} onTouchEnd={() => select(p.code)}
+              style={{ padding:"12px 14px", cursor:"pointer", borderBottom:"1px solid #f0f2f5", display:"flex", gap:10, alignItems:"center", minHeight:44 }}
+              onMouseEnter={e => e.currentTarget.style.background="#f8f9fc"}
+              onMouseLeave={e => e.currentTarget.style.background="#fff"}>
+              <span style={{ fontWeight:700, color:"#1a1f2e", fontSize:15 }}>{p.code}</span>
+              {p.description && <span style={{ color:"#9aa0b4", fontSize:13 }}>— {p.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+function Login({ onLogin, onForgot }) {
+  const [empId, setEmpId]       = useState("");
+  const [empName, setEmpName]   = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const submit = async () => {
+    setError(""); setLoading(true);
+    try {
+      let resolvedId = empId.trim();
+      if (!resolvedId && empName.trim()) {
+        const rows = await db.get("employees", `name=ilike.${encodeURIComponent(empName.trim())}`);
+        if (!rows || rows.length === 0) { setError("Employee not found."); return; }
+        resolvedId = rows[0].id;
+        setEmpId(resolvedId);
+      }
+      if (!resolvedId) { setError("Please enter your Employee ID or name."); return; }
+        // Must have a password entered
+      if (!password) { setError("Please enter your password."); return; }
+
+      // Load employee profile
+      const rows = await db.get("employees", `id=ilike.${encodeURIComponent(resolvedId)}`);
+      if (!rows || rows.length === 0) { setError("Employee not found."); return; }
+      const emp = rows[0];
+
+      // Try Supabase Auth (encrypted password), fall back to plain text for employees without auth accounts
+      let authToken = null;
+      try {
+        const authData = await auth.signIn(resolvedId, password);
+        authToken = authData.access_token;
+      } catch {
+        // Auth account doesn't exist — validate plain text password instead
+        if (!emp.password || emp.password !== password) {
+          setError("Incorrect password."); return;
+        }
+      }
+
+      const user = { id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor, category: emp.category || emp.role, token: authToken, mustChangePassword: emp.must_change_password };
+      saveSession(user); onLogin(user);eRef, useCallback } from "react";
+import "./App.css";
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://dtnrkerxtjpjfomtotcs.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bnJrZXJ4dGpwamZvbXRvdGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMzUzNDIsImV4cCI6MjA5MzgxMTM0Mn0.0bfZaNIOTUcM8EfTwUR-gbESwYkMFBnFj0Kc1NHOUEo";
+const LOGO_URL     = "https://eurospectooling.com/wp-content/uploads/2024/03/logo-e1711467462820.png";
+const INACTIVITY_MS = 10 * 60 * 1000;
+const APP_SLOGAN   = "Log it. Approve it. Export it.";
+const DEV_NAME     = "Dhyey Chokshi (Software Developer)";
+const DEV_EMAIL    = "dchokshi@eurospectooling.com";
+const HIGHER_ROLES = ["supervisor", "finance", "admin"];
+
+// ─── Supabase Auth ────────────────────────────────────────────────────────────
+const auth = {
+  signIn: async (empId, password) => {
+    const email = empId.toLowerCase() + "@euroclock.eurospec.internal";
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error_description || data.error);
+    return data;
+  },
+  signOut: async (token) => {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+  },
+  // Send reset email to work email via Supabase
+  resetPassword: async (workEmail) => {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: workEmail })
+    });
+    return res.ok;
+  },
+  // Update password using access token
+  updatePassword: async (token, newPassword) => {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword })
+    });
+    return res.ok;
+  }
+};
+
+const rpc = async (fn, params) => {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(params)
+  });
+  return res.ok;
+};
+
+// ─── Supabase DB ──────────────────────────────────────────────────────────────
+const db = {
+  get: async (table, params = "") => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }
+    });
+    return res.json();
+  },
+  post: async (table, body) => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  },
+  patch: async (table, match, body) => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  },
+  delete: async (table, match) => {
+    await fetch(`${SUPABASE_URL}/rest/v1/${table}?${match}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+  }
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 9);
+const today = () => new Date().toISOString().split("T")[0];
+const dayOfDate = (d) => {
+  const day = new Date(d + "T12:00:00").getDay();
+  return ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][day];
+};
+const computeSeq = (entries) => {
+  const totals = {};
+  entries.forEach(e => { const k = `${e.employee_id}|${e.date}|${e.job}`; totals[k] = (totals[k] || 0) + 1; });
+  const counts = {};
+  return entries.map(e => {
+    const k = `${e.employee_id}|${e.date}|${e.job}`;
+    counts[k] = (counts[k] || 0) + 1;
+    return { ...e, dateSeq: totals[k] > 1 ? counts[k] : "" };
+  });
+};
+const getWeekRange = (offset = 0) => {
+  const now = new Date();
+  const diff = (now.getDay() === 0 ? -6 : 1 - now.getDay()) + offset * 7;
+  const mon = new Date(now); mon.setDate(now.getDate() + diff);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { from: mon.toISOString().split("T")[0], to: sun.toISOString().split("T")[0] };
+};
+const getMonthRange = (offset = 0) => {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const last  = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+  return { from: first.toISOString().split("T")[0], to: last.toISOString().split("T")[0] };
+};
+const SESSION_KEY = "es_user";
+const saveSession  = (u) => sessionStorage.setItem(SESSION_KEY, JSON.stringify(u));
+const loadSession  = ()  => { try { const v = sessionStorage.getItem(SESSION_KEY); return v ? JSON.parse(v) : null; } catch { return null; } };
+const clearSession = ()  => sessionStorage.removeItem(SESSION_KEY);
+
+// ─── Shared UI ────────────────────────────────────────────────────────────────
+function Toast({ msg, type, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
+  return <div className={`toast${type === "error" ? " error" : ""}`}>{msg}</div>;
+}
+function Spinner() {
+  return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:60 }}>
+      <div style={{ width:32, height:32, border:"3px solid #e4e7f0", borderTop:"3px solid #c8a84b", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+function RefreshBtn({ onClick, loading }) {
+  return (
+    <button onClick={onClick} disabled={loading} className="refresh-btn">
+      <span style={{ display:"inline-block", animation: loading ? "spin 0.8s linear infinite" : "none" }}>↻</span>
+      <span className="refresh-label">{loading ? "Refreshing..." : "Refresh"}</span>
+    </button>
+  );
+}
+function Footer() {
+  return (
+    <div style={{ textAlign:"right", padding:"12px 16px", fontSize:11, color:"#c4c8d4", letterSpacing:1, borderTop:"1px solid #f0f2f5", marginTop:16 }}>
+      Developed by: Eurospec
+    </div>
+  );
+}
+function HelpButton({ onClick }) {
+  return <button onClick={onClick} className="help-btn">? Help</button>;
+}
+
+// ─── Help Modal ───────────────────────────────────────────────────────────────
+function HelpModal({ onClose }) {
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:12 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background:"#fff", borderRadius:10, width:"100%", maxWidth:680, maxHeight:"90vh", overflow:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.18)" }}>
+        <div style={{ background:"#1a1f2e", borderRadius:"10px 10px 0 0", padding:"20px 24px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:800, color:"#c8a84b" }}>EuroClock <span style={{ color:"#fff" }}>Help Center</span></div>
+            <div style={{ fontSize:12, color:"#9aa0b4", marginTop:2 }}>Everything you need to know</div>
+          </div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:"#9aa0b4", fontSize:22, cursor:"pointer", padding:"4px 8px" }}>✕</button>
+        </div>
+        <div style={{ padding:"20px" }}>
+          {[
+            { role:"👷 Toolmaker / CNC", color:"#fff8e6", border:"#f0dfa0", steps:["Sign in with your Employee ID and password.","On first login you'll be asked to set a new password.","Select the date and search for your Project Code.","Enter hours. Check R&D if applicable. Add a comment if needed.","Tap Submit. Toolmaker entries go to your supervisor; CNC entries auto-approve."] },
+            { role:"👔 Supervisor", color:"#f0faf0", border:"#c0e0c0", steps:["Sign in — you'll set a new password on first login.","Go to Review tab to see pending entries from your team.","Tap ✓ to approve, ✕ to reject, or Edit to fix and approve.","Use Refresh to load new entries without reloading the page.","Forgot your password? Use the Forgot Password link on the login screen."] },
+            { role:"💼 Finance", color:"#f0f4ff", border:"#b0c4f0", steps:["Sign in — set a new password on first login.","Use quick filters or custom date range.","Export Epicor CSV downloads in the exact format needed.","Go to Project Codes tab to manage codes for the team.","Forgot password? Use the reset link — it goes to your work email."] },
+            { role:"🔧 Admin", color:"#fdf0f0", border:"#f0c0c0", steps:["Add employees with their ID, name, role, and a temporary password.","All employees must change their password on first login.","For supervisors/finance/admin, add their work email for password resets.","Edit passwords anytime — changes sync immediately."] },
+          ].map(s => (
+            <div key={s.role} style={{ marginBottom:12, background:s.color, border:`1px solid ${s.border}`, borderRadius:8, padding:"12px 16px" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#1a1f2e", marginBottom:8 }}>{s.role}</div>
+              <ol style={{ paddingLeft:18, margin:0 }}>
+                {s.steps.map((step, i) => <li key={i} style={{ fontSize:13, color:"#4a5068", marginBottom:4, lineHeight:1.5 }}>{step}</li>)}
+              </ol>
+            </div>
+          ))}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:10, paddingBottom:6, borderBottom:"2px solid #f0f2f5" }}>FAQ</div>
+            {[
+              ["Will I be logged out if I refresh?","No — your session persists. You'll only be logged out after 10 minutes of inactivity."],
+              ["What is LB vs RD?","LB = regular labour hours. RD = Research & Development. Check the R&D box when logging."],
+              ["I forgot my password — what do I do?","On the login screen click Forgot Password. Supervisors/Finance/Admin get a reset email. Toolmakers/CNC ask their admin to reset it."],
+              ["What is Date Seq in the export?","Only filled when you log multiple entries for the same project on the same day."],
+            ].map(([q, a]) => (
+              <div key={q} style={{ marginBottom:10, padding:"10px 14px", background:"#f8f9fc", borderRadius:6, border:"1px solid #e4e7f0" }}>
+                <div style={{ fontWeight:600, fontSize:13, color:"#1a1f2e", marginBottom:4 }}>{q}</div>
+                <div style={{ fontSize:13, color:"#7a8099", lineHeight:1.5 }}>{a}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background:"#1a1f2e", borderRadius:8, padding:"18px 20px" }}>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#c8a84b", marginBottom:12 }}>Contact Us</div>
+            <div style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+              <div style={{ width:44, height:44, borderRadius:"50%", background:"#c8a84b", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:16, color:"#1a1f2e", flexShrink:0 }}>DC</div>
+              <div>
+                <div style={{ color:"#fff", fontWeight:600, fontSize:14 }}>{DEV_NAME}</div>
+                <div style={{ color:"#9aa0b4", fontSize:12, marginTop:2 }}>EuroClock · Eurospec Tooling & Manufacturing</div>
+                <a href={`mailto:${DEV_EMAIL}`} style={{ color:"#c8a84b", fontSize:13, marginTop:4, display:"block", textDecoration:"none" }}>📧 {DEV_EMAIL}</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CHANGE PASSWORD SCREEN ───────────────────────────────────────────────────
+function ChangePasswordScreen({ user, onDone, showToast }) {
+  const [newPass, setNewPass]     = useState("");
+  const [confirm, setConfirm]     = useState("");
+  const [error, setError]         = useState("");
+  const [saving, setSaving]       = useState(false);
+  const isHigher = HIGHER_ROLES.includes(user.role);
+
+  const submit = async () => {
+    setError("");
+    if (newPass.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (newPass !== confirm) { setError("Passwords don't match."); return; }
+    setSaving(true);
+    try {
+      // Use RPC with admin privileges to update encrypted password
+      const ok = await rpc("update_employee_password", { emp_id: user.id, new_password: newPass });
+      if (!ok) throw new Error("RPC update failed");
+      // Update plain text copy in employees table (for admin visibility)
+      await db.patch("employees", `id=eq.${user.id}`, { password: newPass, must_change_password: false });
+      showToast("Password updated successfully!");
+      onDone();
+    } catch { setError("Failed to update password. Please try again."); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-box" style={{ position:"relative", overflow:"hidden" }}>
+        {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:0, height:56, objectFit:"contain", borderRadius:"0 8px 0 0", padding:"6px 8px 4px 4px" }} />}
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", marginBottom:4 }}>
+          Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+        </div>
+        <div style={{ marginBottom:24 }}>
+          <div style={{ background:"#fff8e6", border:"1px solid #f0dfa0", borderRadius:6, padding:"12px 14px" }}>
+            <div style={{ fontWeight:700, fontSize:14, color:"#b8860b", marginBottom:4 }}>🔐 Set Your Password</div>
+            <div style={{ fontSize:13, color:"#7a8099", lineHeight:1.5 }}>
+              Welcome, <strong>{user.name}</strong>! This is your first login.
+              Please set a personal password to continue.
+              {isHigher && <span> Your admin can also send a reset link to your work email if you ever forget it.</span>}
+            </div>
+          </div>
+        </div>
+        {error && <div className="login-error">{error}</div>}
+        <div className="form-group" style={{ marginBottom:14 }}>
+          <label className="form-label">New Password</label>
+          <input className="form-input" type="password" placeholder="Min 6 characters" value={newPass}
+            onChange={e => setNewPass(e.target.value)} style={{ fontSize:16 }} />
+        </div>
+        <div className="form-group" style={{ marginBottom:24 }}>
+          <label className="form-label">Confirm Password</label>
+          <input className="form-input" type="password" placeholder="Re-enter password" value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && submit()} style={{ fontSize:16 }} />
+        </div>
+        <button className="btn btn-primary" style={{ width:"100%", padding:"14px", fontSize:15 }} onClick={submit} disabled={saving}>
+          {saving ? "Saving..." : "Set Password & Continue →"}
+        </button>
+        <div style={{ marginTop:16, padding:"10px 12px", background:"#f8f9fc", borderRadius:6, fontSize:12, color:"#9aa0b4" }}>
+          💡 Choose something you'll remember. You can always contact your admin if you get locked out.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FORGOT PASSWORD SCREEN ───────────────────────────────────────────────────
+function ForgotPasswordScreen({ onBack }) {
+  const [empId, setEmpId]   = useState("");
+  const [email, setEmail]   = useState("");
+  const [sent, setSent]     = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+  const [mode, setMode]     = useState(null); // "email" or "admin"
+
+  const checkEmployee = async () => {
+    setError("");
+    if (!empId.trim()) { setError("Please enter your Employee ID."); return; }
+    setLoading(true);
+    try {
+      const rows = await db.get("employees", `id=ilike.${encodeURIComponent(empId.trim())}`);
+      if (!rows || rows.length === 0) { setError("Employee not found."); return; }
+      const emp = rows[0];
+      if (HIGHER_ROLES.includes(emp.role) && emp.work_email) {
+        setMode("email");
+        setEmail(emp.work_email);
+      } else {
+        setMode("admin");
+      }
+    } catch { setError("Connection error. Try again."); }
+    finally { setLoading(false); }
+  };
+
+  const sendReset = async () => {
+    setLoading(true);
+    try {
+      await auth.resetPassword(email);
+      setSent(true);
+    } catch { setError("Failed to send reset email. Contact your admin."); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-box">
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", marginBottom:20 }}>
+          Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+        </div>
+
+        {sent ? (
+          <div>
+            <div style={{ background:"#eaf5ea", border:"1px solid #c0e0c0", borderRadius:8, padding:"16px", marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:"#2a8a2a", marginBottom:6 }}>✓ Reset Email Sent</div>
+              <div style={{ fontSize:13, color:"#4a5068", lineHeight:1.5 }}>
+                A password reset link has been sent to <strong>{email}</strong>. Check your inbox and follow the link to reset your password.
+              </div>
+            </div>
+            <button className="btn btn-primary" style={{ width:"100%" }} onClick={onBack}>Back to Sign In</button>
+          </div>
+        ) : mode === "admin" ? (
+          <div>
+            <div style={{ background:"#fff8e6", border:"1px solid #f0dfa0", borderRadius:8, padding:"16px", marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:"#b8860b", marginBottom:6 }}>Contact Your Admin</div>
+              <div style={{ fontSize:13, color:"#4a5068", lineHeight:1.5 }}>
+                Password resets for Toolmakers and CNC operators are handled by your Admin. Please ask them to reset your password in the Admin panel.
+              </div>
+            </div>
+            <button className="btn btn-primary" style={{ width:"100%" }} onClick={onBack}>Back to Sign In</button>
+          </div>
+        ) : mode === "email" ? (
+          <div>
+            <div style={{ fontSize:13, color:"#7a8099", marginBottom:16 }}>
+              We'll send a reset link to your work email:
+            </div>
+            <div style={{ padding:"12px 14px", background:"#f8f9fc", border:"1px solid #e4e7f0", borderRadius:6, marginBottom:20, fontWeight:600, color:"#1a1f2e" }}>
+              📧 {email}
+            </div>
+            {error && <div className="login-error">{error}</div>}
+            <button className="btn btn-primary" style={{ width:"100%", padding:"14px", marginBottom:12 }} onClick={sendReset} disabled={loading}>
+              {loading ? "Sending..." : "Send Reset Link"}
+            </button>
+            <button className="btn btn-secondary" style={{ width:"100%" }} onClick={onBack}>Cancel</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize:14, color:"#1a1f2e", marginBottom:16, fontWeight:600 }}>Forgot Password</div>
+            <div style={{ fontSize:13, color:"#7a8099", marginBottom:16 }}>Enter your Employee ID and we'll help you reset your password.</div>
+            {error && <div className="login-error">{error}</div>}
+            <div className="form-group" style={{ marginBottom:16 }}>
+              <label className="form-label">Employee ID</label>
+              <input className="form-input" placeholder="e.g. E001" value={empId}
+                onChange={e => setEmpId(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && checkEmployee()}
+                style={{ fontSize:16 }} />
+            </div>
+            <button className="btn btn-primary" style={{ width:"100%", padding:"14px", marginBottom:12 }} onClick={checkEmployee} disabled={loading}>
+              {loading ? "Checking..." : "Continue →"}
+            </button>
+            <button className="btn btn-secondary" style={{ width:"100%" }} onClick={onBack}>Back to Sign In</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── PROJECT CODE INPUT ───────────────────────────────────────────────────────
+function ProjectInput({ value, onChange, projectCodes }) {
+  const [open, setOpen]   = useState(false);
+  const [query, setQuery] = useState(value);
+  const ref               = useRef(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const matches = projectCodes.filter(p =>
+    !query || p.code.includes(query) || (p.description || "").toLowerCase().includes(query.toLowerCase())
+  );
+
+  const select = (code) => { onChange(code); setQuery(code); setOpen(false); };
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <input className="form-input" placeholder="Type or search project code..."
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        autoComplete="off" style={{ fontSize:16 }}
+      />
+      {open && matches.length > 0 && (
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, background:"#fff", border:"1px solid #d8dce8", borderRadius:4, boxShadow:"0 4px 12px rgba(0,0,0,0.12)", maxHeight:240, overflowY:"auto" }}>
+          {matches.slice(0, 50).map(p => (
+            <div key={p.code} onMouseDown={() => select(p.code)} onTouchEnd={() => select(p.code)}
+              style={{ padding:"12px 14px", cursor:"pointer", borderBottom:"1px solid #f0f2f5", display:"flex", gap:10, alignItems:"center", minHeight:44 }}
+              onMouseEnter={e => e.currentTarget.style.background="#f8f9fc"}
+              onMouseLeave={e => e.currentTarget.style.background="#fff"}>
+              <span style={{ fontWeight:700, color:"#1a1f2e", fontSize:15 }}>{p.code}</span>
+              {p.description && <span style={{ color:"#9aa0b4", fontSize:13 }}>— {p.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+function Login({ onLogin, onForgot }) {
+  const [empId, setEmpId]       = useState("");
+  const [empName, setEmpName]   = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const submit = async () => {
+    setError(""); setLoading(true);
+    try {
+      let resolvedId = empId.trim();
+      if (!resolvedId && empName.trim()) {
+        const rows = await db.get("employees", `name=ilike.${encodeURIComponent(empName.trim())}`);
+        if (!rows || rows.length === 0) { setError("Employee not found."); return; }
+        resolvedId = rows[0].id;
+        setEmpId(resolvedId);
+      }
+      if (!resolvedId) { setError("Please enter your Employee ID or name."); return; }
       let authData;
       try { authData = await auth.signIn(resolvedId, password); }
       catch { setError("Incorrect password."); return; }
