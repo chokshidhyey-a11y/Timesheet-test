@@ -4,7 +4,7 @@ import "./App.css";
 // ─── Config ───────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://dtnrkerxtjpjfomtotcs.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bnJrZXJ4dGpwamZvbXRvdGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMzUzNDIsImV4cCI6MjA5MzgxMTM0Mn0.0bfZaNIOTUcM8EfTwUR-gbESwYkMFBnFj0Kc1NHOUEo";
-const LOGO_URL    = "https://th.bing.com/th/id/R.287e4b39e66019910c6cd8fdca93e03e?rik=4sgN%2bWBn06yxMA&riu=http%3a%2f%2feurospectooling.com%2fwp-content%2fuploads%2f2011%2f07%2flogo3.png&ehk=31Z3kUJnRQ6VGbV%2f2QzOyAQA3LT1vnBCXxMM1b0xuAk%3d&risl=&pid=ImgRaw&r=0";
+const LOGO_URL    = "http://eurospectooling.com/wp-content/uploads/2011/07/logo3.png";
 const INACTIVITY_MS = 10 * 60 * 1000;
 const APP_NAME    = "EuroClock";
 const APP_SLOGAN  = "Log it. Approve it. Export it.";
