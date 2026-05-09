@@ -358,7 +358,7 @@ function Login({ onLogin }) {
           <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
             Euro<span style={{ color:"#c8a84b" }}>Clock</span>
           </div>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>Eurospec Tooling & Manufacturing</div>
         </div>
         <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginBottom:28, marginTop:4 }}>{APP_SLOGAN}</div>
 
