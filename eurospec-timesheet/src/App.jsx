@@ -327,13 +327,13 @@ function SupervisorView({ user, showToast }) {
   const [teamIds, setTeamIds] = useState([]);
 
   useEffect(() => {
+    // Get team members
     db.get("employees", `supervisor=eq.${user.id}`).then(team => {
-      const ids = team.map(e => e.id);
-      setTeamIds(ids);
-      if (ids.length === 0) { setLoading(false); return; }
-      db.get("entries", `employee_id=in.(${ids.join(",")})&order=created_at.desc`)
-        .then(data => { setEntries(data); setLoading(false); });
+      setTeamIds(team.map(e => e.id));
     });
+    // Fetch entries directly by supervisor_id
+    db.get("entries", `supervisor_id=eq.${user.id}&order=created_at.desc`)
+      .then(data => { setEntries(data); setLoading(false); });
   }, [user.id]);
 
   const update = async (id, status) => {
