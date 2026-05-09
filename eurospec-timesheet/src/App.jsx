@@ -229,9 +229,9 @@ function ChangePasswordScreen({ user, onDone, showToast }) {
     if (newPass !== confirm) { setError("Passwords don't match."); return; }
     setSaving(true);
     try {
-      // Update in Supabase Auth
-      const ok = await auth.updatePassword(user.token, newPass);
-      if (!ok) throw new Error("Auth update failed");
+      // Use RPC with admin privileges to update encrypted password
+      const ok = await rpc("update_employee_password", { emp_id: user.id, new_password: newPass });
+      if (!ok) throw new Error("RPC update failed");
       // Update plain text copy in employees table (for admin visibility)
       await db.patch("employees", `id=eq.${user.id}`, { password: newPass, must_change_password: false });
       showToast("Password updated successfully!");
