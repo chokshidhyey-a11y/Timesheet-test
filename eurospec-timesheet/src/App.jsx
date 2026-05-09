@@ -237,13 +237,15 @@ function HelpButton({ onClick }) {
 function BrandLogo({ size = "normal" }) {
   const big = size === "big";
   return (
-    <div style={{ display:"flex", alignItems:"center", gap: big ? 14 : 10 }}>
-      {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 52 : 36, objectFit:"contain" }} />}
-      <div>
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 28 : 20, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
-          Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+    <div style={{ display:"flex", alignItems:"center", gap: big ? 16 : 10, flexDirection: big ? "column" : "row" }}>
+      <div style={{ display:"flex", alignItems:"center", gap: big ? 16 : 10 }}>
+        <div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 32 : 20, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
+            Euro<span style={{ color:"#c8a84b" }}>Clock</span>
+          </div>
+          {big && <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>}
         </div>
-        {big && <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>by Eurospec Tooling & Manufacturing</div>}
+        {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 72 : 40, objectFit:"contain" }} />}
       </div>
     </div>
   );
@@ -350,7 +352,9 @@ function Login({ onLogin }) {
     <div className="login-wrap">
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       <div className="login-box">
-        <div style={{ marginBottom:6 }}><BrandLogo size="big" /></div>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:6 }}>
+          <BrandLogo size="big" />
+        </div>
         <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginBottom:28, marginTop:4 }}>{APP_SLOGAN}</div>
 
         <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:15, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#1a1f2e", marginBottom:20 }}>Sign In</div>
