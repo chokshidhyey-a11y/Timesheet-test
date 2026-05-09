@@ -1067,11 +1067,11 @@ export default function App() {
   return (
     <div className="app">
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-      <header className="header" style={{ padding:0, paddingRight:20 }}>
+      <header className="header" style={{ padding:0, paddingRight:24 }}>
         <div style={{ display:"flex", alignItems:"stretch", height:"100%" }}>
-          {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height:64, objectFit:"contain", marginRight:12, padding:"6px 10px 6px 12px" }} />}
+          {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height:60, objectFit:"contain", marginRight:8, padding:"6px 10px 6px 12px" }} />}
           <div style={{ display:"flex", alignItems:"center" }}>
-            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:30, fontWeight:800, letterSpacing:0, textTransform:"uppercase", color:"#1a1f2e" }}>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:34, fontWeight:800, letterSpacing:0, textTransform:"uppercase", color:"#1a1f2e" }}>
               Euro<span style={{ color:"#c8a84b" }}>Clock</span>
             </div>
           </div>
