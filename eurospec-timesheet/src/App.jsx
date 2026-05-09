@@ -384,11 +384,23 @@ function Login({ onLogin, onForgot }) {
       const emp = empRows[0];
 
       let authToken = null;
+      let authSuccess = false;
+
+      // Try Supabase Auth first (encrypted password check)
       try {
         const authData = await auth.signIn(resolvedId, password);
         authToken = authData.access_token;
+        authSuccess = true;
       } catch {
-        if (!emp.password || emp.password !== password) {
+        // Auth account doesn't exist yet — fall back to plain text
+        authSuccess = false;
+      }
+
+      // If Supabase Auth failed, validate against plain text password
+      if (!authSuccess) {
+        const storedPass = (emp.password || "").trim();
+        const enteredPass = password.trim();
+        if (!storedPass || storedPass !== enteredPass) {
           setError("Incorrect password."); return;
         }
       }
