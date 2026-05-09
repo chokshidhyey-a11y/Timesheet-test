@@ -387,7 +387,7 @@ function Login({ onLogin }) {
 
         <div style={{ marginTop:20, textAlign:"center" }}>
           <button onClick={() => setShowHelp(true)} style={{ background:"transparent", border:"none", color:"#9aa0b4", fontSize:12, cursor:"pointer", fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:1 }}>
-            ? Need help signing in?
+            Need help signing in
           </button>
         </div>
 
