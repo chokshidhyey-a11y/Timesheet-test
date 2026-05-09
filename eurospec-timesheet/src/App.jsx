@@ -355,12 +355,12 @@ function Login({ onLogin }) {
           <img src={LOGO_URL} alt="Logo" style={{ position:"absolute", top:0, right:-8, height:56, objectFit:"contain", borderRadius:"0 8px 0 0", padding:"6px 8px 4px 4px" }} />
         )}
         <div style={{ marginBottom:6 }}>
-          <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
             Euro<span style={{ color:"#c8a84b" }}>Clock</span>
           </div>
-          <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>Eurospec Tooling & Manufacturing</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginTop:2 }}>Eurospec Tooling & Manufacturing</div>
         </div>
-        <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:12, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginBottom:28, marginTop:4 }}>{APP_SLOGAN}</div>
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:2, color:"#9aa0b4", textTransform:"uppercase", marginBottom:28, marginTop:4 }}>{APP_SLOGAN}</div>
 
         <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:15, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#1a1f2e", marginBottom:20 }}>Sign In</div>
         {error && <div className="login-error">{error}</div>}
