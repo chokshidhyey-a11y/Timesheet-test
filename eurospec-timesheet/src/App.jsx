@@ -11,19 +11,26 @@ const DEV_EMAIL = "dchokshi@eurospectooling.com";
 const HIGHER_ROLES = ["supervisor", "finance", "admin"];
 
 const auth = {
-  signIn: async (empId, password) => {
-    const email = empId.toLowerCase() + "@euroclock.eurospec.internal";
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-      method: "POST",
-      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    // 500 = auth user doesn't exist in Supabase at all
-    if (res.status === 500) throw new Error("NO_AUTH_USER");
-    // 400 = wrong password
-    if (res.status === 400 || data.error) throw new Error("WRONG_PASSWORD");
-    return data;
+  signIn: async (empId, password, workEmail = null) => {
+    // Try work email first for higher roles, fall back to internal email
+    const emailsToTry = workEmail
+      ? [workEmail, empId.toLowerCase() + "@euroclock.eurospec.internal"]
+      : [empId.toLowerCase() + "@euroclock.eurospec.internal"];
+
+    let lastStatus = 500;
+    for (const email of emailsToTry) {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      lastStatus = res.status;
+      if (res.status === 200) return data;
+      if (res.status === 400) throw new Error("WRONG_PASSWORD");
+    }
+    if (lastStatus === 500) throw new Error("NO_AUTH_USER");
+    throw new Error("WRONG_PASSWORD");
   },
   signOut: async (token) => {
     await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
@@ -273,7 +280,11 @@ function ForgotPasswordScreen({ onBack }) {
 
   const sendReset = async () => {
     setLoading(true);
-    try { await auth.resetPassword(email); setSent(true); }
+    try {
+      // Work email is now the auth email for higher roles
+      await auth.resetPassword(email);
+      setSent(true);
+    }
     catch { setError("Failed to send reset email. Contact your admin."); }
     finally { setLoading(false); }
   };
@@ -389,7 +400,7 @@ function Login({ onLogin, onForgot }) {
       let authToken = null;
 
       try {
-        const authData = await auth.signIn(resolvedId, password);
+        const authData = await auth.signIn(resolvedId, password, emp.work_email || null);
         authToken = authData.access_token;
         // Supabase Auth passed — encrypted password correct
       } catch (authErr) {
