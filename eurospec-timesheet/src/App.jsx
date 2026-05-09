@@ -19,7 +19,10 @@ const auth = {
       body: JSON.stringify({ email, password })
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error_description || data.error);
+    // 500 = auth user doesn't exist in Supabase at all
+    if (res.status === 500) throw new Error("NO_AUTH_USER");
+    // 400 = wrong password
+    if (res.status === 400 || data.error) throw new Error("WRONG_PASSWORD");
     return data;
   },
   signOut: async (token) => {
@@ -384,20 +387,17 @@ function Login({ onLogin, onForgot }) {
       const emp = empRows[0];
 
       let authToken = null;
-      let authSuccess = false;
 
-      // Try Supabase Auth first (encrypted password check)
       try {
         const authData = await auth.signIn(resolvedId, password);
         authToken = authData.access_token;
-        authSuccess = true;
-      } catch {
-        // Auth account doesn't exist yet — fall back to plain text
-        authSuccess = false;
-      }
-
-      // If Supabase Auth failed, validate against plain text password
-      if (!authSuccess) {
+        // Supabase Auth passed — encrypted password correct
+      } catch (authErr) {
+        if (authErr.message === "WRONG_PASSWORD") {
+          // Auth user exists but password is wrong
+          setError("Incorrect password."); return;
+        }
+        // Auth user doesn't exist (500) — fall back to plain text check
         const storedPass = (emp.password || "").trim();
         const enteredPass = password.trim();
         if (!storedPass || storedPass !== enteredPass) {
