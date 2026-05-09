@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import "./App.css";
 
 // ─── Supabase config ──────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://dtnrkerxtjpjfomtotcs.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bnJrZXJ4dGpwamZvbXRvdGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMzUzNDIsImV4cCI6MjA5MzgxMTM0Mn0.0bfZaNIOTUcM8EfTwUR-gbESwYkMFBnFj0Kc1NHOUEo";
+const LOGO_URL = "https://th.bing.com/th/id/R.287e4b39e66019910c6cd8fdca93e03e?rik=4sgN%2bWBn06yxMA&riu=http%3a%2f%2feurospectooling.com%2fwp-content%2fuploads%2f2011%2f07%2flogo3.png&ehk=31Z3kUJnRQ6VGbV%2f2QzOyAQA3LT1vnBCXxMM1b0xuAk%3d&risl=&pid=ImgRaw&r=0"; // ← paste your logo URL here e.g. "https://yoursite.com/logo.png"
+const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutes
 
 const db = {
   get: async (table, params = "") => {
@@ -56,6 +58,33 @@ const computeSeq = (entries) => {
   });
 };
 
+// Month range helper
+const getMonthRange = (offset = 0) => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + offset;
+  const first = new Date(y, m, 1);
+  const last  = new Date(y, m + 1, 0);
+  return {
+    from: first.toISOString().split("T")[0],
+    to:   last.toISOString().split("T")[0],
+  };
+};
+
+const getWeekRange = (offset = 0) => {
+  const now = new Date();
+  const diff = (now.getDay() === 0 ? -6 : 1 - now.getDay()) + offset * 7;
+  const mon = new Date(now); mon.setDate(now.getDate() + diff);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { from: mon.toISOString().split("T")[0], to: sun.toISOString().split("T")[0] };
+};
+
+// ─── Session storage (survives refresh, clears on tab close) ──────────────────
+const SESSION_KEY = "es_user";
+const saveSession = (user) => sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+const loadSession = () => { try { const v = sessionStorage.getItem(SESSION_KEY); return v ? JSON.parse(v) : null; } catch { return null; } };
+const clearSession = () => sessionStorage.removeItem(SESSION_KEY);
+
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ msg, type, onDone }) {
   useEffect(() => { const t = setTimeout(onDone, 2800); return () => clearTimeout(t); }, [onDone]);
@@ -72,6 +101,19 @@ function Spinner() {
   );
 }
 
+// ─── Refresh Button ───────────────────────────────────────────────────────────
+function RefreshBtn({ onClick, loading }) {
+  return (
+    <button onClick={onClick} disabled={loading}
+      style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "1px solid #d8dce8",
+        color: "#7a8099", padding: "6px 14px", borderRadius: 4, cursor: "pointer", fontFamily: "'Barlow Condensed', sans-serif",
+        fontSize: 12, letterSpacing: 1, textTransform: "uppercase", transition: "all .2s" }}>
+      <span style={{ display: "inline-block", animation: loading ? "spin 0.8s linear infinite" : "none" }}>↻</span>
+      {loading ? "Refreshing..." : "Refresh"}
+    </button>
+  );
+}
+
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 function Login({ onLogin }) {
   const [empId, setEmpId]       = useState("");
@@ -83,22 +125,24 @@ function Login({ onLogin }) {
   const submit = async () => {
     setError(""); setLoading(true);
     try {
-      const query = empId
-        ? `id=eq.${encodeURIComponent(empId.trim())}`
+      // Case-insensitive search for both id and name
+      const query = empId.trim()
+        ? `id=ilike.${encodeURIComponent(empId.trim())}`
         : `name=ilike.${encodeURIComponent(empName.trim())}`;
       const rows = await db.get("employees", query);
       if (!rows || rows.length === 0) { setError("Employee not found."); return; }
       const emp = rows[0];
       if (emp.password !== password) { setError("Incorrect password."); return; }
-      // Auto-fill the other field
-      onLogin({ id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor });
+      const user = { id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor, category: emp.category };
+      saveSession(user);
+      onLogin(user);
     } catch { setError("Connection error. Please try again."); }
     finally { setLoading(false); }
   };
 
   const handleIdBlur = async () => {
     if (!empId.trim()) return;
-    const rows = await db.get("employees", `id=eq.${encodeURIComponent(empId.trim())}`);
+    const rows = await db.get("employees", `id=ilike.${encodeURIComponent(empId.trim())}`);
     if (rows?.[0]) setEmpName(rows[0].name);
   };
   const handleNameBlur = async () => {
@@ -110,7 +154,9 @@ function Login({ onLogin }) {
   return (
     <div className="login-wrap">
       <div className="login-box">
-        <div className="login-logo">Eurospec <span>Tooling</span></div>
+        {LOGO_URL
+          ? <img src={LOGO_URL} alt="Logo" style={{ height: 48, marginBottom: 16, objectFit: "contain" }} />
+          : <div className="login-logo">Eurospec <span>Tooling</span></div>}
         <div className="login-sub">WEEKLY TIME SHEET SYSTEM</div>
         <div className="login-title">Sign In</div>
         {error && <div className="login-error">{error}</div>}
@@ -157,14 +203,64 @@ function Login({ onLogin }) {
   );
 }
 
-// ─── TOOLMAKER FORM ───────────────────────────────────────────────────────────
+// ─── Project Code Input with suggestions ──────────────────────────────────────
+function ProjectInput({ value, onChange, projectCodes }) {
+  const [open, setOpen]   = useState(false);
+  const [query, setQuery] = useState(value);
+  const ref               = useRef(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const matches = query.length === 0 ? projectCodes : projectCodes.filter(p =>
+    p.code.includes(query) || (p.description || "").toLowerCase().includes(query.toLowerCase())
+  );
+
+  const select = (code) => { onChange(code); setQuery(code); setOpen(false); };
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <input className="form-input" placeholder="Type or select project code..."
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        autoComplete="off"
+      />
+      {open && matches.length > 0 && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 200,
+          background: "#fff", border: "1px solid #d8dce8", borderRadius: 4,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)", maxHeight: 220, overflowY: "auto",
+        }}>
+          {matches.slice(0, 50).map(p => (
+            <div key={p.code} onMouseDown={() => select(p.code)}
+              style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #f0f2f5",
+                display: "flex", gap: 10, alignItems: "center" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#f8f9fc"}
+              onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, color: "#1a1f2e", letterSpacing: 1 }}>{p.code}</span>
+              {p.description && <span style={{ color: "#9aa0b4", fontSize: 12 }}>— {p.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── TOOLMAKER / CNC FORM ─────────────────────────────────────────────────────
 function ToolmakerForm({ user, showToast }) {
-  const [date, setDate]         = useState(today());
-  const [jobs, setJobs]         = useState([{ id: uid(), job: "", hours: "", rnd: false, comment: "" }]);
-  const [projectCodes, setPCs]  = useState([]);
-  const [myEntries, setMine]    = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [saving, setSaving]     = useState(false);
+  const [date, setDate]        = useState(today());
+  const [jobs, setJobs]        = useState([{ id: uid(), job: "", hours: "", rnd: false, comment: "" }]);
+  const [projectCodes, setPCs] = useState([]);
+  const [myEntries, setMine]   = useState([]);
+  const [saving, setSaving]    = useState(false);
+  const isCNC = user.category === "cnc";
 
   useEffect(() => {
     db.get("project_codes", "order=code.asc").then(setPCs);
@@ -185,16 +281,18 @@ function ToolmakerForm({ user, showToast }) {
     if (!valid.length) return;
     setSaving(true);
     try {
+      // CNC entries auto-approve, Toolmaker entries go to pending
+      const status = isCNC ? "approved" : "pending";
       for (const r of valid) {
         const entry = {
           id: uid(), employee_id: user.id, employee_name: user.name,
           date, day: dayOfDate(date), job: r.job.trim(),
           hours: parseFloat(r.hours), rnd: r.rnd,
-          status: "pending", supervisor_id: user.supervisor, notes: r.comment || ""
+          status, supervisor_id: user.supervisor, notes: r.comment || ""
         };
         await db.post("entries", entry);
       }
-      showToast("Entry submitted — awaiting supervisor approval.");
+      showToast(isCNC ? "Entry submitted and auto-approved." : "Entry submitted — awaiting supervisor approval.");
       setJobs([{ id: uid(), job: "", hours: "", rnd: false, comment: "" }]);
       const updated = await db.get("entries", `employee_id=eq.${user.id}&order=created_at.desc&limit=20`);
       setMine(updated);
@@ -205,7 +303,9 @@ function ToolmakerForm({ user, showToast }) {
   return (
     <div className="page">
       <div className="page-title">Log Time</div>
-      <div className="page-sub">Enter your hours — supervisor will review and approve</div>
+      <div className="page-sub">
+        {isCNC ? "CNC entries are auto-approved." : "Toolmaker entries go to supervisor for approval."}
+      </div>
 
       <div className="card">
         <div className="card-title">New Entry</div>
@@ -231,21 +331,7 @@ function ToolmakerForm({ user, showToast }) {
               borderRadius: 6, padding: "12px 14px", transition: "background .2s, border-color .2s",
             }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px auto 28px", gap: 10, alignItems: "center" }}>
-                <div>
-                  <input
-                    className="form-input"
-                    placeholder="Type project code..."
-                    value={row.job}
-                    onChange={e => updateRow(row.id, "job", e.target.value)}
-                    autoComplete="off"
-                    list={`pc-${row.id}`}
-                  />
-                  <datalist id={`pc-${row.id}`}>
-                    {projectCodes.map(p => (
-                      <option key={p.code} value={p.code}>{p.code}{p.description ? ` — ${p.description}` : ""}</option>
-                    ))}
-                  </datalist>
-                </div>
+                <ProjectInput value={row.job} onChange={val => updateRow(row.id, "job", val)} projectCodes={projectCodes} />
                 <input className="form-input" type="number" min="0.25" max="24" step="0.25"
                   placeholder="Hrs" value={row.hours} onChange={e => updateRow(row.id, "hours", e.target.value)} />
                 <label style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
@@ -321,20 +407,24 @@ function ToolmakerForm({ user, showToast }) {
 
 // ─── SUPERVISOR VIEW ──────────────────────────────────────────────────────────
 function SupervisorView({ user, showToast }) {
-  const [entries, setEntries] = useState([]);
-  const [filter, setFilter]   = useState("pending");
-  const [loading, setLoading] = useState(true);
-  const [teamIds, setTeamIds] = useState([]);
+  const [entries, setEntries]   = useState([]);
+  const [filter, setFilter]     = useState("pending");
+  const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [teamIds, setTeamIds]   = useState([]);
 
-  useEffect(() => {
-    // Get team members
-    db.get("employees", `supervisor=eq.${user.id}`).then(team => {
-      setTeamIds(team.map(e => e.id));
-    });
-    // Fetch entries directly by supervisor_id
-    db.get("entries", `supervisor_id=eq.${user.id}&order=created_at.desc`)
-      .then(data => { setEntries(data); setLoading(false); });
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    const [team, data] = await Promise.all([
+      db.get("employees", `supervisor=eq.${user.id}`),
+      db.get("entries", `supervisor_id=eq.${user.id}&order=created_at.desc`)
+    ]);
+    setTeamIds(team.map(e => e.id));
+    setEntries(data);
+    if (isRefresh) setRefreshing(false); else setLoading(false);
   }, [user.id]);
+
+  useEffect(() => { load(); }, [load]);
 
   const update = async (id, status) => {
     await db.patch("entries", `id=eq.${id}`, { status });
@@ -347,10 +437,16 @@ function SupervisorView({ user, showToast }) {
 
   return (
     <div className="page">
-      <div className="page-title">Supervisor Review</div>
-      <div className="page-sub">Review and approve timesheet entries from your team</div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
+        <div>
+          <div className="page-title">Supervisor Review</div>
+          <div className="page-sub">Review and approve timesheet entries from your team</div>
+        </div>
+        <RefreshBtn onClick={() => load(true)} loading={refreshing} />
+      </div>
+
       <div className="stats-row" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-        {[["Pending", pending, "#c8a84b", "awaiting review"], ["Team Size", teamIds.length, "#1a1f2e", "toolmakers"], ["Total Entries", entries.length, "#1a1f2e", "all time"]].map(([label, val, color, sub]) => (
+        {[["Pending", pending, "#c8a84b", "awaiting review"], ["Team Size", teamIds.length, "#1a1f2e", "members"], ["Total Entries", entries.length, "#1a1f2e", "all time"]].map(([label, val, color, sub]) => (
           <div key={label} className="stat-card">
             <div className="stat-label">{label}</div>
             <div className="stat-val" style={{ color }}>{val}</div>
@@ -358,12 +454,14 @@ function SupervisorView({ user, showToast }) {
           </div>
         ))}
       </div>
+
       <div className="filters">
         {["pending","approved","rejected","all"].map(f => (
           <button key={f} className={`btn btn-sm ${filter === f ? "btn-primary" : "btn-secondary"}`}
             onClick={() => setFilter(f)}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
         ))}
       </div>
+
       <div className="card">
         {loading ? <Spinner /> : visible.length === 0
           ? <div style={{ color: "#c4c8d4", fontStyle: "italic", fontSize: 13 }}>No entries.</div>
@@ -402,23 +500,20 @@ function SupervisorView({ user, showToast }) {
 function FinanceDashboard() {
   const [entries, setEntries]     = useState([]);
   const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fromDate, setFromDate]   = useState("");
   const [toDate, setToDate]       = useState("");
   const [empFilter, setEmpFilter] = useState("");
   const [jobFilter, setJobFilter] = useState("");
 
-  useEffect(() => {
-    db.get("entries", "status=eq.approved&order=date.asc,created_at.asc")
-      .then(data => { setEntries(data); setLoading(false); });
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    const data = await db.get("entries", "status=eq.approved&order=date.asc,created_at.asc");
+    setEntries(data);
+    if (isRefresh) setRefreshing(false); else setLoading(false);
   }, []);
 
-  const getWeekRange = (offset = 0) => {
-    const now = new Date();
-    const diff = (now.getDay() === 0 ? -6 : 1 - now.getDay()) + offset * 7;
-    const mon = new Date(now); mon.setDate(now.getDate() + diff);
-    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-    return { from: mon.toISOString().split("T")[0], to: sun.toISOString().split("T")[0] };
-  };
+  useEffect(() => { load(); }, [load]);
 
   const filtered = entries.filter(e => {
     if (fromDate && e.date < fromDate) return false;
@@ -428,11 +523,10 @@ function FinanceDashboard() {
     return true;
   });
 
-  const withSeq   = computeSeq(filtered);
-  const totalHrs  = filtered.reduce((s, e) => s + Number(e.hours), 0);
-  const rndHrs    = filtered.filter(e => e.rnd).reduce((s, e) => s + Number(e.hours), 0);
-  const regHrs    = totalHrs - rndHrs;
-  const jobGroups = filtered.reduce((acc, e) => { acc[e.job] = (acc[e.job] || 0) + Number(e.hours); return acc; }, {});
+  const withSeq  = computeSeq(filtered);
+  const totalHrs = filtered.reduce((s, e) => s + Number(e.hours), 0);
+  const rndHrs   = filtered.filter(e => e.rnd).reduce((s, e) => s + Number(e.hours), 0);
+  const regHrs   = totalHrs - rndHrs;
 
   const exportCSV = () => {
     const rows = [["Project Code","Date of Work","Employee Code","Date Seq","Hours Work","Project Part","Project Cost","Comment","Plant"]];
@@ -447,8 +541,13 @@ function FinanceDashboard() {
 
   return (
     <div className="page">
-      <div className="page-title">Finance Dashboard</div>
-      <div className="page-sub">Approved entries — filter and export in Epicor format</div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
+        <div>
+          <div className="page-title">Finance Dashboard</div>
+          <div className="page-sub">Approved entries — filter and export in Epicor format</div>
+        </div>
+        <RefreshBtn onClick={() => load(true)} loading={refreshing} />
+      </div>
 
       <div className="stats-row">
         {[["Total Hours", totalHrs.toFixed(1), "#1a1f2e", "approved + filtered"],
@@ -465,9 +564,11 @@ function FinanceDashboard() {
 
       <div className="card">
         <div className="card-title">Filter & Export</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <button className="btn btn-sm btn-secondary" onClick={() => { const r = getWeekRange(0);  setFromDate(r.from); setToDate(r.to); }}>This Week</button>
           <button className="btn btn-sm btn-secondary" onClick={() => { const r = getWeekRange(-1); setFromDate(r.from); setToDate(r.to); }}>Last Week</button>
+          <button className="btn btn-sm btn-secondary" onClick={() => { const r = getMonthRange(0);  setFromDate(r.from); setToDate(r.to); }}>This Month</button>
+          <button className="btn btn-sm btn-secondary" onClick={() => { const r = getMonthRange(-1); setFromDate(r.from); setToDate(r.to); }}>Last Month</button>
           <button className="btn btn-sm btn-secondary" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</button>
         </div>
         <div className="form-row-3">
@@ -527,10 +628,10 @@ function FinanceDashboard() {
 
 // ─── PROJECT CODES ────────────────────────────────────────────────────────────
 function ProjectCodesManager({ showToast }) {
-  const [codes, setCodes]   = useState([]);
-  const [code, setCode]     = useState("");
-  const [desc, setDesc]     = useState("");
-  const [error, setError]   = useState("");
+  const [codes, setCodes]     = useState([]);
+  const [code, setCode]       = useState("");
+  const [desc, setDesc]       = useState("");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { db.get("project_codes", "order=code.asc").then(d => { setCodes(d); setLoading(false); }); }, []);
@@ -554,7 +655,7 @@ function ProjectCodesManager({ showToast }) {
   return (
     <div className="page">
       <div className="page-title">Project Codes</div>
-      <div className="page-sub">Manage project codes — toolmakers type and select from this list</div>
+      <div className="page-sub">Manage project codes — employees type and select from this list</div>
       <div className="card">
         <div className="card-title">Add Project Code</div>
         {error && <div className="login-error" style={{ marginBottom: 16 }}>{error}</div>}
@@ -597,7 +698,7 @@ function ProjectCodesManager({ showToast }) {
 function AdminView({ showToast }) {
   const [employees, setEmployees] = useState([]);
   const [entries, setEntries]     = useState([]);
-  const [form, setForm]           = useState({ id: "", name: "", role: "toolmaker", password: "", supervisor: "" });
+  const [form, setForm]           = useState({ id: "", name: "", role: "toolmaker", category: "toolmaker", password: "", supervisor: "" });
   const [editing, setEditing]     = useState(null);
   const [error, setError]         = useState("");
   const [loading, setLoading]     = useState(true);
@@ -610,20 +711,22 @@ function AdminView({ showToast }) {
   }, []);
 
   const supervisors = employees.filter(e => e.role === "supervisor");
+  const isWorker = form.role === "toolmaker" || form.role === "cnc";
 
   const save = async () => {
     setError("");
     if (!form.id || !form.name || !form.password) { setError("ID, Name, and Password are required."); return; }
     if (!editing && employees.find(e => e.id === form.id)) { setError("Employee ID already exists."); return; }
+    const payload = { name: form.name, role: form.role, category: form.category || form.role, password: form.password, supervisor: form.supervisor || null };
     if (editing) {
-      await db.patch("employees", `id=eq.${editing}`, { name: form.name, role: form.role, password: form.password, supervisor: form.supervisor || null });
-      setEmployees(prev => prev.map(e => e.id === editing ? { ...form } : e));
+      await db.patch("employees", `id=eq.${editing}`, payload);
+      setEmployees(prev => prev.map(e => e.id === editing ? { ...form, ...payload } : e));
     } else {
-      await db.post("employees", { ...form, supervisor: form.supervisor || null });
-      setEmployees(prev => [...prev, { ...form }]);
+      await db.post("employees", { id: form.id, ...payload });
+      setEmployees(prev => [...prev, { id: form.id, ...payload }]);
     }
     showToast(editing ? "Employee updated." : "Employee added.");
-    setForm({ id: "", name: "", role: "toolmaker", password: "", supervisor: "" });
+    setForm({ id: "", name: "", role: "toolmaker", category: "toolmaker", password: "", supervisor: "" });
     setEditing(null);
   };
 
@@ -633,7 +736,7 @@ function AdminView({ showToast }) {
     showToast("Employee removed.");
   };
 
-  const roleColor = { toolmaker: "#c8a84b", supervisor: "#2a8a2a", finance: "#2a7a9a", admin: "#cc4444" };
+  const roleColor = { toolmaker: "#c8a84b", cnc: "#2a7a9a", supervisor: "#2a8a2a", finance: "#7a2a9a", admin: "#cc4444" };
 
   return (
     <div className="page">
@@ -657,8 +760,9 @@ function AdminView({ showToast }) {
         <div className="form-row-3">
           <div className="form-group">
             <label className="form-label">Role</label>
-            <select className="form-select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+            <select className="form-select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value, category: e.target.value }))}>
               <option value="toolmaker">Toolmaker</option>
+              <option value="cnc">CNC</option>
               <option value="supervisor">Supervisor</option>
               <option value="finance">Finance</option>
               <option value="admin">Admin</option>
@@ -669,7 +773,7 @@ function AdminView({ showToast }) {
             <input className="form-input" type="text" value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
           </div>
-          {form.role === "toolmaker" && (
+          {(form.role === "toolmaker" || form.role === "cnc") && (
             <div className="form-group">
               <label className="form-label">Supervisor</label>
               <select className="form-select" value={form.supervisor} onChange={e => setForm(f => ({ ...f, supervisor: e.target.value }))}>
@@ -679,9 +783,20 @@ function AdminView({ showToast }) {
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+        {/* Category badge info */}
+        {form.role === "toolmaker" && (
+          <div style={{ marginTop: 8, padding: "8px 12px", background: "#fff8e6", border: "1px solid #f0dfa0", borderRadius: 4, fontSize: 12, color: "#b8860b" }}>
+            Toolmaker entries will require supervisor approval before going to Finance.
+          </div>
+        )}
+        {form.role === "cnc" && (
+          <div style={{ marginTop: 8, padding: "8px 12px", background: "#e8f4ff", border: "1px solid #b0d4f0", borderRadius: 4, fontSize: 12, color: "#2a6a9a" }}>
+            CNC entries will be auto-approved and go directly to Finance.
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
           <button className="btn btn-primary" onClick={save}>{editing ? "Save Changes" : "Add Employee"}</button>
-          {editing && <button className="btn btn-secondary" onClick={() => { setEditing(null); setForm({ id:"",name:"",role:"toolmaker",password:"",supervisor:"" }); }}>Cancel</button>}
+          {editing && <button className="btn btn-secondary" onClick={() => { setEditing(null); setForm({ id:"",name:"",role:"toolmaker",category:"toolmaker",password:"",supervisor:"" }); }}>Cancel</button>}
         </div>
       </div>
       <div className="card">
@@ -693,16 +808,20 @@ function AdminView({ showToast }) {
               <tbody>
                 {employees.map(emp => {
                   const sup = employees.find(e => e.id === emp.supervisor);
+                  const role = emp.category || emp.role;
                   return (
                     <tr key={emp.id}>
                       <td style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, color: "#9aa0b4" }}>{emp.id}</td>
                       <td style={{ color: "#1a1f2e" }}>{emp.name}</td>
-                      <td><span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: roleColor[emp.role] || "#1a1f2e" }}>{emp.role}</span></td>
+                      <td>
+                        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: roleColor[role] || "#1a1f2e" }}>{role}</span>
+                        {role === "cnc" && <span style={{ marginLeft: 6, fontSize: 10, color: "#9aa0b4" }}>auto-approve</span>}
+                      </td>
                       <td style={{ color: "#9aa0b4" }}>{sup ? sup.name : "—"}</td>
                       <td>{entries.filter(e => e.employee_id === emp.id).length}</td>
                       <td>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button className="btn btn-sm btn-secondary" onClick={() => { setForm({ ...emp, supervisor: emp.supervisor || "" }); setEditing(emp.id); }}>Edit</button>
+                          <button className="btn btn-sm btn-secondary" onClick={() => { setForm({ ...emp, category: emp.category || emp.role, supervisor: emp.supervisor || "" }); setEditing(emp.id); }}>Edit</button>
                           <button className="btn btn-sm btn-danger" onClick={() => remove(emp.id)}>Remove</button>
                         </div>
                       </td>
@@ -719,20 +838,61 @@ function AdminView({ showToast }) {
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user,  setUser]  = useState(null);
+  const [user,  setUser]  = useState(() => loadSession());
   const [tab,   setTab]   = useState(null);
   const [toast, setToast] = useState(null);
+  const inactivityTimer   = useRef(null);
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
 
   const tabMap = {
     toolmaker:  [{ id: "log",      label: "Log Time"      }],
+    cnc:        [{ id: "log",      label: "Log Time"      }],
     supervisor: [{ id: "review",   label: "Review"        }],
     finance:    [{ id: "finance",  label: "Dashboard"     }, { id: "projects", label: "Project Codes" }],
     admin:      [{ id: "admin",    label: "Admin"         }, { id: "finance",  label: "Finance View"  }, { id: "projects", label: "Project Codes" }],
   };
 
-  const handleLogin = emp => { setUser(emp); setTab(tabMap[emp.role]?.[0]?.id || "log"); };
+  // Set default tab when user loads from session
+  useEffect(() => {
+    if (user && !tab) {
+      setTab(tabMap[user.role]?.[0]?.id || "log");
+    }
+  }, [user]);
+
+  // 10-minute inactivity logout
+  const resetTimer = useCallback(() => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    inactivityTimer.current = setTimeout(() => {
+      clearSession();
+      setUser(null);
+      setTab(null);
+    }, INACTIVITY_MS);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    events.forEach(e => window.addEventListener(e, resetTimer));
+    resetTimer();
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    };
+  }, [user, resetTimer]);
+
+  const handleLogin = emp => {
+    setUser(emp);
+    saveSession(emp);
+    setTab(tabMap[emp.role]?.[0]?.id || "log");
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    setUser(null);
+    setTab(null);
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+  };
 
   if (!user) return <div className="app"><Login onLogin={handleLogin} /></div>;
 
@@ -741,10 +901,17 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="header-brand">Eurospec <span>Tooling</span></div>
+        <div className="header-brand">
+          {LOGO_URL
+            ? <img src={LOGO_URL} alt="Logo" style={{ height: 36, objectFit: "contain" }} />
+            : <>Eurospec <span>Tooling</span></>}
+        </div>
         <div className="header-right">
-          <div className="header-user">Signed in as <strong>{user.name}</strong> · {user.id}</div>
-          <button className="btn-logout" onClick={() => setUser(null)}>Sign Out</button>
+          <div className="header-user">
+            Signed in as <strong>{user.name}</strong> · {user.id}
+            {user.role === "cnc" && <span style={{ marginLeft: 8, fontSize: 10, background: "#e8f4ff", color: "#2a6a9a", padding: "1px 6px", borderRadius: 3, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1 }}>CNC</span>}
+          </div>
+          <button className="btn-logout" onClick={handleLogout}>Sign Out</button>
         </div>
       </header>
       {roleTabs.length > 1 && (
