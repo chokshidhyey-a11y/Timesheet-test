@@ -238,7 +238,7 @@ function BrandLogo({ size = "normal" }) {
   const big = size === "big";
   return (
     <div style={{ display:"flex", alignItems:"center", gap: big ? 14 : 10 }}>
-      {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 54 : 44, objectFit:"contain" }} />}
+      {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: big ? 22 : 44, objectFit:"contain" }} />}
       <div>
         <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize: big ? 32 : 22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e", lineHeight:1 }}>
           Euro<span style={{ color:"#c8a84b" }}>Clock</span>
