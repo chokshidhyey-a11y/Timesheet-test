@@ -1071,7 +1071,7 @@ export default function App() {
         <div style={{ display:"flex", alignItems:"stretch", height:"100%" }}>
           {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height:58, objectFit:"contain", marginRight:12, padding:"6px 10px 6px 12px" }} />}
           <div style={{ display:"flex", alignItems:"center" }}>
-            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:22, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1f2e" }}>
+            <div style={{ fontFamily:"'Helvetica Now',sans-serif", fontSize:22, fontWeight:800, letterSpacing:0, textTransform:"uppercase", color:"#1a1f2e" }}>
               Euro<span style={{ color:"#c8a84b" }}>Clock</span>
             </div>
           </div>
