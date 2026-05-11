@@ -326,7 +326,7 @@ function ForgotPasswordScreen({ onBack }) {
             {error && <div className="login-error">{error}</div>}
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">Employee ID</label>
-              <input className="form-input" placeholder="e.g. E001" value={empId} onChange={e => setEmpId(e.target.value)} onKeyDown={e => e.key === "Enter" && checkEmployee()} style={{ fontSize: 16 }} />
+              <input className="form-input" placeholder="e.g. 0001" value={empId} onChange={e => setEmpId(e.target.value)} onKeyDown={e => e.key === "Enter" && checkEmployee()} style={{ fontSize: 16 }} />
             </div>
             <button className="btn btn-primary" style={{ width: "100%", padding: "14px", marginBottom: 12 }} onClick={checkEmployee} disabled={loading}>{loading ? "Checking..." : "Continue →"}</button>
             <button className="btn btn-secondary" style={{ width: "100%" }} onClick={onBack}>Back to Sign In</button>
@@ -451,11 +451,11 @@ function Login({ onLogin, onForgot }) {
         {error && <div className="login-error">{error}</div>}
         <div className="form-group" style={{ marginBottom: 12 }}>
           <label className="form-label">Employee ID</label>
-          <input className="form-input" placeholder="e.g. E001" value={empId} style={{ fontSize: 16 }} onChange={e => setEmpId(e.target.value)} onBlur={handleIdBlur} />
+          <input className="form-input" placeholder="e.g. 0001" value={empId} style={{ fontSize: 16 }} onChange={e => setEmpId(e.target.value)} onBlur={handleIdBlur} />
         </div>
         <div className="form-group" style={{ marginBottom: 12 }}>
           <label className="form-label">— or — Employee Name</label>
-          <input className="form-input" placeholder="e.g. Marcus Webb" value={empName} style={{ fontSize: 16 }} onChange={e => setEmpName(e.target.value)} onBlur={handleNameBlur} />
+          <input className="form-input" placeholder="e.g. Dhyey Chokshi" value={empName} style={{ fontSize: 16 }} onChange={e => setEmpName(e.target.value)} onBlur={handleNameBlur} />
         </div>
         <div className="form-group" style={{ marginBottom: 20 }}>
           <label className="form-label">Password</label>
@@ -985,7 +985,7 @@ function AdminView({ showToast, onHelp }) {
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">Employee ID</label>
-            <input className="form-input" placeholder="e.g. E004" value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} disabled={!!editing} style={{ fontSize: 16 }} />
+            <input className="form-input" placeholder="e.g. 0001" value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} disabled={!!editing} style={{ fontSize: 16 }} />
           </div>
           <div className="form-group">
             <label className="form-label">Full Name</label>
