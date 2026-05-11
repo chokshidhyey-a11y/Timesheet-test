@@ -35,7 +35,7 @@ const auth = {
   signOut: async (token) => {
     await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
       method: "POST",
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+      headers: { key: SUPABASE_KEY, Authorization: `Bearer ${token}` }
     });
   },
   resetPassword: async (workEmail) => {
@@ -64,7 +64,7 @@ const suggestProjectCode = async (comment, projectCodes) => {
     const codeList = projectCodes.map(p => `${p.code}${p.description ? ` (${p.description})` : ""}`).join(", ");
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      headers: { "Content-Type": "application/json", "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": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 50,
