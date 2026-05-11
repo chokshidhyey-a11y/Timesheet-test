@@ -57,6 +57,34 @@ const rpc = async (fn, params) => {
   return res.ok;
 };
 
+// ─── AI Project Code Suggester ───────────────────────────────────────────────
+const suggestProjectCode = async (comment, projectCodes) => {
+  if (!comment || comment.length < 4 || projectCodes.length === 0) return null;
+  try {
+    const codeList = projectCodes.map(p => `${p.code}${p.description ? ` (${p.description})` : ""}`).join(", ");
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "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": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 50,
+        system: `You are a helper for a manufacturing timesheet app. Given a work description and a list of project codes, return ONLY the single best matching project code number. If no good match exists, return "none". Never explain, just return the code or "none".`,
+        messages: [{ role: "user", content: `Work description: "${comment}"
+
+Available project codes: ${codeList}
+
+Best matching code:` }]
+      })
+    });
+    const data = await res.json();
+    const suggested = data.content?.[0]?.text?.trim();
+    if (!suggested || suggested === "none") return null;
+    // Validate the suggestion is an actual code
+    const match = projectCodes.find(p => p.code === suggested || suggested.includes(p.code));
+    return match ? match.code : null;
+  } catch { return null; }
+};
+
 const db = {
   get: async (table, params = "") => {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
@@ -326,7 +354,7 @@ function ForgotPasswordScreen({ onBack }) {
             {error && <div className="login-error">{error}</div>}
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label">Employee ID</label>
-              <input className="form-input" placeholder="e.g. 0001" value={empId} onChange={e => setEmpId(e.target.value)} onKeyDown={e => e.key === "Enter" && checkEmployee()} style={{ fontSize: 16 }} />
+              <input className="form-input" placeholder="e.g. E001" value={empId} onChange={e => setEmpId(e.target.value)} onKeyDown={e => e.key === "Enter" && checkEmployee()} style={{ fontSize: 16 }} />
             </div>
             <button className="btn btn-primary" style={{ width: "100%", padding: "14px", marginBottom: 12 }} onClick={checkEmployee} disabled={loading}>{loading ? "Checking..." : "Continue →"}</button>
             <button className="btn btn-secondary" style={{ width: "100%" }} onClick={onBack}>Back to Sign In</button>
@@ -451,11 +479,11 @@ function Login({ onLogin, onForgot }) {
         {error && <div className="login-error">{error}</div>}
         <div className="form-group" style={{ marginBottom: 12 }}>
           <label className="form-label">Employee ID</label>
-          <input className="form-input" placeholder="e.g. 0001" value={empId} style={{ fontSize: 16 }} onChange={e => setEmpId(e.target.value)} onBlur={handleIdBlur} />
+          <input className="form-input" placeholder="e.g. E001" value={empId} style={{ fontSize: 16 }} onChange={e => setEmpId(e.target.value)} onBlur={handleIdBlur} />
         </div>
         <div className="form-group" style={{ marginBottom: 12 }}>
           <label className="form-label">— or — Employee Name</label>
-          <input className="form-input" placeholder="e.g. Dhyey Chokshi" value={empName} style={{ fontSize: 16 }} onChange={e => setEmpName(e.target.value)} onBlur={handleNameBlur} />
+          <input className="form-input" placeholder="e.g. Marcus Webb" value={empName} style={{ fontSize: 16 }} onChange={e => setEmpName(e.target.value)} onBlur={handleNameBlur} />
         </div>
         <div className="form-group" style={{ marginBottom: 20 }}>
           <label className="form-label">Password</label>
@@ -478,6 +506,8 @@ function ToolmakerForm({ user, showToast, onHelp }) {
   const [projectCodes, setPCs] = useState([]);
   const [myEntries, setMine] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState({}); // { rowId: { code, loading } }
+  const aiTimers = useRef({});
   const isCNC = (user.category || user.role) === "cnc";
 
   useEffect(() => {
@@ -486,8 +516,38 @@ function ToolmakerForm({ user, showToast, onHelp }) {
   }, [user.id]);
 
   const addRow = () => setJobs(j => [...j, { id: uid(), job: "", hours: "", rnd: false, comment: "" }]);
-  const removeRow = (id) => setJobs(j => j.filter(r => r.id !== id));
-  const updateRow = (id, field, val) => setJobs(j => j.map(r => r.id === id ? { ...r, [field]: val } : r));
+  const removeRow = (id) => {
+    setJobs(j => j.filter(r => r.id !== id));
+    setAiSuggestions(s => { const n = { ...s }; delete n[id]; return n; });
+  };
+  const updateRow = (id, field, val) => {
+    setJobs(j => j.map(r => r.id === id ? { ...r, [field]: val } : r));
+    // Trigger AI suggestion when comment changes and no job code set yet
+    if (field === "comment" && val.length >= 5) {
+      clearTimeout(aiTimers.current[id]);
+      setAiSuggestions(s => ({ ...s, [id]: { ...s[id], loading: true } }));
+      aiTimers.current[id] = setTimeout(async () => {
+        const currentJobs = jobs; // capture current jobs
+        const row = currentJobs.find(r => r.id === id);
+        if (row && !row.job) { // only suggest if no code selected yet
+          const code = await suggestProjectCode(val, projectCodes);
+          setAiSuggestions(s => ({ ...s, [id]: { code, loading: false } }));
+        } else {
+          setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
+        }
+      }, 800);
+    } else if (field === "comment" && val.length < 5) {
+      setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
+    }
+    if (field === "job") {
+      // Clear suggestion when user picks a code manually
+      setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
+    }
+  };
+  const acceptSuggestion = (rowId, code) => {
+    setJobs(j => j.map(r => r.id === rowId ? { ...r, job: code } : r));
+    setAiSuggestions(s => ({ ...s, [rowId]: { code: null, loading: false } }));
+  };
   const totalHrs = jobs.reduce((s, r) => s + (parseFloat(r.hours) || 0), 0);
   const rndHrs = jobs.filter(r => r.rnd).reduce((s, r) => s + (parseFloat(r.hours) || 0), 0);
   const regHrs = totalHrs - rndHrs;
@@ -546,7 +606,28 @@ function ToolmakerForm({ user, showToast, onHelp }) {
                   {jobs.length > 1 && <button className="btn-icon" style={{ fontSize: 18, color: "#cc4444" }} onClick={() => removeRow(row.id)}>✕</button>}
                 </div>
               </div>
-              <input className="form-input" placeholder="Comment (optional)..." value={row.comment} onChange={e => updateRow(row.id, "comment", e.target.value)} style={{ marginTop: 8, fontSize: 14, color: "#9aa0b4", background: "transparent", borderColor: "#e4e7f0" }} />
+              <input className="form-input" placeholder="Describe work (e.g. mould base machining)..." value={row.comment} onChange={e => updateRow(row.id, "comment", e.target.value)} style={{ marginTop: 8, fontSize: 14, color: "#9aa0b4", background: "transparent", borderColor: "#e4e7f0" }} />
+              {/* AI suggestion */}
+              {aiSuggestions[row.id]?.loading && !row.job && (
+                <div style={{ marginTop: 6, fontSize: 12, color: "#9aa0b4", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "inline-block", animation: "spin 0.8s linear infinite" }}>⟳</span> AI is finding the best project code...
+                </div>
+              )}
+              {aiSuggestions[row.id]?.code && !row.job && (
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, color: "#7a8099" }}>✨ AI suggests:</span>
+                  <button
+                    onMouseDown={() => acceptSuggestion(row.id, aiSuggestions[row.id].code)}
+                    style={{ background: "#1a1f2e", color: "#c8a84b", border: "none", borderRadius: 4, padding: "4px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: 1 }}>
+                    {aiSuggestions[row.id].code}
+                  </button>
+                  <span style={{ fontSize: 11, color: "#c4c8d4" }}>
+                    {projectCodes.find(p => p.code === aiSuggestions[row.id].code)?.description || ""}
+                  </span>
+                  <button onMouseDown={() => setAiSuggestions(s => ({ ...s, [row.id]: { code: null } }))}
+                    style={{ background: "transparent", border: "none", color: "#c4c8d4", cursor: "pointer", fontSize: 11 }}>✕ dismiss</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -985,7 +1066,7 @@ function AdminView({ showToast, onHelp }) {
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">Employee ID</label>
-            <input className="form-input" placeholder="e.g. 0001" value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} disabled={!!editing} style={{ fontSize: 16 }} />
+            <input className="form-input" placeholder="e.g. E004" value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} disabled={!!editing} style={{ fontSize: 16 }} />
           </div>
           <div className="form-group">
             <label className="form-label">Full Name</label>
