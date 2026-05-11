@@ -35,7 +35,7 @@ const auth = {
   signOut: async (token) => {
     await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
       method: "POST",
-      headers: { key: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
     });
   },
   resetPassword: async (workEmail) => {
@@ -1160,9 +1160,7 @@ function ProjectCodesManager({ showToast, onHelp }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target.result;
-      const lines = text.trim().split(/
-?
-/);
+      const lines = text.trim().split(/\r?\n/);
       const parsed = [];
       lines.forEach((line, i) => {
         if (i === 0 && (line.toLowerCase().includes("code") || line.toLowerCase().includes("project"))) return; // skip header
