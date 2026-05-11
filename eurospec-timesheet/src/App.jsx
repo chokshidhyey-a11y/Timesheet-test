@@ -64,7 +64,7 @@ const suggestProjectCode = async (comment, projectCodes) => {
     const codeList = projectCodes.map(p => `${p.code}${p.description ? ` (${p.description})` : ""}`).join(", ");
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "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": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      headers: { "Content-Type": "application/json", "x-api-key": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 50,
@@ -767,6 +767,46 @@ function SupervisorView({ user, showToast, onHelp }) {
           </div>
         ))}
       </div>
+
+      {/* Anomaly flags */}
+      {(() => {
+        const flags = [];
+        // Flag: >12 hrs in a single entry
+        entries.filter(e => e.status === "pending").forEach(e => {
+          if (Number(e.hours) > 12) flags.push({ id: e.id, msg: `${e.employee_name} logged ${e.hours} hrs on ${e.job} (${e.date}) — unusually high`, level: "warn" });
+        });
+        // Flag: same employee logged same job 3+ times on same day (pending)
+        const grouped = {};
+        entries.filter(e => e.status === "pending").forEach(e => {
+          const k = `${e.employee_id}|${e.date}|${e.job}`;
+          grouped[k] = grouped[k] || [];
+          grouped[k].push(e);
+        });
+        Object.values(grouped).forEach(group => {
+          if (group.length >= 3) flags.push({ id: group[0].id + "_dup", msg: `${group[0].employee_name} logged ${group[0].job} ${group.length}× on ${group[0].date} — possible duplicate`, level: "warn" });
+        });
+        // Flag: total hrs for an employee > 14 on same day
+        const dayTotals = {};
+        entries.filter(e => e.status === "pending").forEach(e => {
+          const k = `${e.employee_id}|${e.date}`;
+          dayTotals[k] = (dayTotals[k] || { name: e.employee_name, date: e.date, total: 0 });
+          dayTotals[k].total += Number(e.hours);
+        });
+        Object.values(dayTotals).forEach(d => {
+          if (d.total > 14) flags.push({ id: `tot_${d.name}_${d.date}`, msg: `${d.name} has ${d.total} total hrs on ${d.date} — exceeds 14 hrs`, level: "error" });
+        });
+        if (flags.length === 0) return null;
+        return (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#cc4444", marginBottom: 8 }}>⚠ Anomalies Detected</div>
+            {flags.map(f => (
+              <div key={f.id} style={{ padding: "10px 14px", background: f.level === "error" ? "#fff0f0" : "#fff8e6", border: `1px solid ${f.level === "error" ? "#f0c0c0" : "#f0dfa0"}`, borderRadius: 6, marginBottom: 8, fontSize: 13, color: f.level === "error" ? "#cc4444" : "#b8860b", display: "flex", alignItems: "center", gap: 8 }}>
+                <span>{f.level === "error" ? "🔴" : "🟡"}</span> {f.msg}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       <div className="filters">
         {["pending", "approved", "rejected", "all"].map(f => (
           <button key={f} className={`btn btn-sm ${filter === f ? "btn-primary" : "btn-secondary"}`} onClick={() => setFilter(f)}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
@@ -802,6 +842,161 @@ function SupervisorView({ user, showToast, onHelp }) {
               </table>
             </div>}
       </div>
+      <Footer />
+    </div>
+  );
+}
+
+
+// ─── HOURS DASHBOARD (Overview) ───────────────────────────────────────────────
+function HoursDashboard({ onHelp }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState("month");
+
+  useEffect(() => {
+    db.get("entries", "status=eq.approved&order=date.asc").then(d => { setEntries(d); setLoading(false); });
+  }, []);
+
+  const getMonthRange = (offset = 0) => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const last  = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+    return { from: first.toISOString().split("T")[0], to: last.toISOString().split("T")[0] };
+  };
+
+  const range = period === "month" ? getMonthRange(0) : period === "lastmonth" ? getMonthRange(-1) : getWeekRange(0);
+
+  const filtered = entries.filter(e => e.date >= range.from && e.date <= range.to);
+  const totalHrs = filtered.reduce((s, e) => s + Number(e.hours), 0);
+  const rndHrs   = filtered.filter(e => e.rnd).reduce((s, e) => s + Number(e.hours), 0);
+  const regHrs   = totalHrs - rndHrs;
+
+  // Hours by project
+  const byProject = {};
+  filtered.forEach(e => {
+    byProject[e.job] = (byProject[e.job] || 0) + Number(e.hours);
+  });
+  const topProjects = Object.entries(byProject).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  // Hours by employee
+  const byEmp = {};
+  filtered.forEach(e => {
+    byEmp[e.employee_name] = (byEmp[e.employee_name] || 0) + Number(e.hours);
+  });
+  const topEmps = Object.entries(byEmp).sort((a, b) => b[1] - a[1]);
+
+  // Hours by day of week
+  const byDay = { Monday:0, Tuesday:0, Wednesday:0, Thursday:0, Friday:0, Saturday:0, Sunday:0 };
+  filtered.forEach(e => { if (byDay[e.day] !== undefined) byDay[e.day] += Number(e.hours); });
+
+  const maxProjectHrs = topProjects[0]?.[1] || 1;
+  const maxEmpHrs = topEmps[0]?.[1] || 1;
+  const maxDayHrs = Math.max(...Object.values(byDay)) || 1;
+
+  const barColor = "#c8a84b";
+  const rndColor = "#2a8a2a";
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <div className="page-title">Overview</div>
+          <div className="page-sub">Hours breakdown across projects and employees</div>
+        </div>
+        <HelpButton onClick={onHelp} />
+      </div>
+
+      {/* Period selector */}
+      <div className="quick-filters" style={{ marginBottom: 20 }}>
+        {[["week","This Week"], ["month","This Month"], ["lastmonth","Last Month"]].map(([k, label]) => (
+          <button key={k} className={`btn btn-sm ${period === k ? "btn-primary" : "btn-secondary"}`} onClick={() => setPeriod(k)}>{label}</button>
+        ))}
+      </div>
+
+      {/* Summary stats */}
+      <div className="stats-row" style={{ marginBottom: 20 }}>
+        {[["Total Hours", totalHrs.toFixed(1), "#1a1f2e", "approved"],
+          ["LB Hours", regHrs.toFixed(1), "#c8a84b", "regular labour"],
+          ["RD Hours", rndHrs.toFixed(1), "#2a8a2a", "research & dev"],
+          ["Projects", topProjects.length, "#1a1f2e", "active"]].map(([label, val, color, sub]) => (
+          <div key={label} className="stat-card">
+            <div className="stat-label">{label}</div>
+            <div className="stat-val" style={{ color }}>{val}</div>
+            <div className="stat-sub">{sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {loading ? <Spinner /> : (
+        <>
+          {/* Hours by project bar chart */}
+          <div className="card">
+            <div className="card-title">Hours by Project Code</div>
+            {topProjects.length === 0
+              ? <div style={{ color:"#c4c8d4", fontStyle:"italic", fontSize:13 }}>No approved entries for this period.</div>
+              : topProjects.map(([job, hrs]) => {
+                const rndForJob = filtered.filter(e => e.job === job && e.rnd).reduce((s,e) => s + Number(e.hours), 0);
+                const regForJob = hrs - rndForJob;
+                return (
+                  <div key={job} style={{ marginBottom: 14 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom: 4 }}>
+                      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:"#1a1f2e", fontSize:14 }}>{job}</span>
+                      <span style={{ fontSize:13, color:"#9aa0b4" }}>{hrs.toFixed(1)} hrs</span>
+                    </div>
+                    <div style={{ height:10, background:"#f0f2f5", borderRadius:5, overflow:"hidden", display:"flex" }}>
+                      <div style={{ width:`${(regForJob/maxProjectHrs*100).toFixed(0)}%`, background:barColor, transition:"width .4s" }} />
+                      <div style={{ width:`${(rndForJob/maxProjectHrs*100).toFixed(0)}%`, background:rndColor, transition:"width .4s" }} />
+                    </div>
+                    {rndForJob > 0 && (
+                      <div style={{ fontSize:11, color:"#9aa0b4", marginTop:2 }}>
+                        <span style={{ color:barColor }}>{regForJob.toFixed(1)} LB</span> · <span style={{ color:rndColor }}>{rndForJob.toFixed(1)} RD</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            {topProjects.length > 0 && (
+              <div style={{ display:"flex", gap:16, marginTop:8, fontSize:12 }}>
+                <span style={{ display:"flex", alignItems:"center", gap:5 }}><span style={{ width:10, height:10, background:barColor, borderRadius:2, display:"inline-block" }} /> Regular (LB)</span>
+                <span style={{ display:"flex", alignItems:"center", gap:5 }}><span style={{ width:10, height:10, background:rndColor, borderRadius:2, display:"inline-block" }} /> R&D (RD)</span>
+              </div>
+            )}
+          </div>
+
+          {/* Hours by employee */}
+          <div className="card">
+            <div className="card-title">Hours by Employee</div>
+            {topEmps.length === 0
+              ? <div style={{ color:"#c4c8d4", fontStyle:"italic", fontSize:13 }}>No data.</div>
+              : topEmps.map(([name, hrs]) => (
+                <div key={name} style={{ marginBottom: 12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                    <span style={{ fontSize:13, color:"#1a1f2e" }}>{name}</span>
+                    <span style={{ fontSize:13, color:"#9aa0b4" }}>{hrs.toFixed(1)} hrs</span>
+                  </div>
+                  <div style={{ height:8, background:"#f0f2f5", borderRadius:4, overflow:"hidden" }}>
+                    <div style={{ width:`${(hrs/maxEmpHrs*100).toFixed(0)}%`, background:"#1a1f2e", transition:"width .4s" }} />
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* Hours by day of week */}
+          <div className="card">
+            <div className="card-title">Hours by Day of Week</div>
+            <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:80 }}>
+              {Object.entries(byDay).map(([day, hrs]) => (
+                <div key={day} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                  <span style={{ fontSize:11, color:"#9aa0b4" }}>{hrs > 0 ? hrs.toFixed(0) : ""}</span>
+                  <div style={{ width:"100%", background: hrs > 0 ? barColor : "#f0f2f5", borderRadius:"3px 3px 0 0", height: hrs > 0 ? `${(hrs/maxDayHrs*60).toFixed(0)}px` : "4px", transition:"height .4s", minHeight:4 }} />
+                  <span style={{ fontSize:10, color:"#9aa0b4", textAlign:"center" }}>{day.slice(0,3)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
       <Footer />
     </div>
   );
@@ -936,6 +1131,9 @@ function ProjectCodesManager({ showToast, onHelp }) {
   const [desc, setDesc] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState(null);
+  const fileRef = useRef(null);
 
   useEffect(() => { db.get("project_codes", "order=code.asc").then(d => { setCodes(d); setLoading(false); }); }, []);
 
@@ -955,6 +1153,46 @@ function ProjectCodesManager({ showToast, onHelp }) {
     showToast(`Project code ${c} removed.`);
   };
 
+  // CSV/Excel import
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target.result;
+      const lines = text.trim().split(/
+?
+/);
+      const parsed = [];
+      lines.forEach((line, i) => {
+        if (i === 0 && (line.toLowerCase().includes("code") || line.toLowerCase().includes("project"))) return; // skip header
+        const parts = line.split(/,|	/);
+        const c = (parts[0] || "").replace(/"/g, "").trim();
+        const d = (parts[1] || "").replace(/"/g, "").trim();
+        if (c) parsed.push({ code: c, description: d });
+      });
+      setImportPreview(parsed);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const confirmImport = async () => {
+    if (!importPreview) return;
+    setImporting(true);
+    let added = 0; let skipped = 0;
+    for (const row of importPreview) {
+      if (codes.find(p => p.code === row.code)) { skipped++; continue; }
+      await db.post("project_codes", { code: row.code, description: row.description });
+      added++;
+    }
+    const updated = await db.get("project_codes", "order=code.asc");
+    setCodes(updated);
+    setImportPreview(null);
+    setImporting(false);
+    showToast(`Imported ${added} codes${skipped ? `, skipped ${skipped} duplicates` : ""}.`);
+  };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -964,6 +1202,34 @@ function ProjectCodesManager({ showToast, onHelp }) {
         </div>
         <HelpButton onClick={onHelp} />
       </div>
+
+      {/* Import preview modal */}
+      {importPreview && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 8, width: "100%", maxWidth: 520, padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.15)", maxHeight: "80vh", overflow: "auto" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1f2e", marginBottom: 4 }}>Import Preview</div>
+            <div style={{ fontSize: 13, color: "#9aa0b4", marginBottom: 16 }}>{importPreview.length} codes found in file</div>
+            <div style={{ maxHeight: 300, overflow: "auto", marginBottom: 16, border: "1px solid #e4e7f0", borderRadius: 6 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr style={{ background: "#f8f9fc" }}><th style={{ padding: "8px 12px", textAlign: "left", fontSize: 11, color: "#9aa0b4", letterSpacing: 1 }}>CODE</th><th style={{ padding: "8px 12px", textAlign: "left", fontSize: 11, color: "#9aa0b4", letterSpacing: 1 }}>DESCRIPTION</th></tr></thead>
+                <tbody>
+                  {importPreview.map(p => (
+                    <tr key={p.code} style={{ borderTop: "1px solid #f0f2f5" }}>
+                      <td style={{ padding: "8px 12px", fontWeight: 700, color: codes.find(x => x.code === p.code) ? "#cc4444" : "#1a1f2e" }}>{p.code} {codes.find(x => x.code === p.code) && <span style={{ fontSize: 10, color: "#cc4444" }}>(exists)</span>}</td>
+                      <td style={{ padding: "8px 12px", color: "#4a5068", fontSize: 13 }}>{p.description || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-secondary" onClick={() => setImportPreview(null)} style={{ flex: 1 }}>Cancel</button>
+              <button className="btn btn-primary" onClick={confirmImport} disabled={importing} style={{ flex: 1, padding: "12px" }}>{importing ? "Importing..." : `Import ${importPreview.filter(p => !codes.find(x => x.code === p.code)).length} new codes`}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-title">Add Code</div>
         {error && <div className="login-error" style={{ marginBottom: 12 }}>{error}</div>}
@@ -974,10 +1240,17 @@ function ProjectCodesManager({ showToast, onHelp }) {
           </div>
           <div className="form-group">
             <label className="form-label">Description</label>
-            <input className="form-input" placeholder="e.g. New Mould Assembly" value={desc} onChange={e => setDesc(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} style={{ fontSize: 16 }} />
+            <input className="form-input" placeholder="e.g. Fisher D659" value={desc} onChange={e => setDesc(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} style={{ fontSize: 16 }} />
           </div>
         </div>
-        <button className="btn btn-primary" onClick={add} style={{ width: "100%", padding: "13px" }}>+ Add Code</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn btn-primary" onClick={add} style={{ flex: 1, padding: "13px" }}>+ Add Single Code</button>
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()} style={{ padding: "13px 20px", whiteSpace: "nowrap" }}>↑ Import CSV</button>
+          <input ref={fileRef} type="file" accept=".csv,.txt,.tsv" style={{ display: "none" }} onChange={handleFile} />
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: "#9aa0b4" }}>
+          CSV format: two columns — Code, Description. First row can be a header. Tab or comma separated.
+        </div>
       </div>
       <div className="card">
         <div className="card-title">Active Codes ({codes.length})</div>
@@ -1166,8 +1439,8 @@ export default function App() {
     toolmaker: [{ id: "log", label: "Log Time" }],
     cnc: [{ id: "log", label: "Log Time" }],
     supervisor: [{ id: "review", label: "Review" }],
-    finance: [{ id: "finance", label: "Dashboard" }, { id: "projects", label: "Codes" }],
-    admin: [{ id: "admin", label: "Admin" }, { id: "finance", label: "Finance" }, { id: "projects", label: "Codes" }],
+    finance: [{ id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
+    admin: [{ id: "admin", label: "Admin" }, { id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
   };
 
   useEffect(() => { if (user && !tab) setTab(tabMap[user.role]?.[0]?.id || "log"); }, [user]);
@@ -1233,9 +1506,11 @@ export default function App() {
       )}
       {tab === "log" && <ToolmakerForm user={user} showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {tab === "review" && <SupervisorView user={user} showToast={showToast} onHelp={() => setShowHelp(true)} />}
+      {tab === "overview"  && <HoursDashboard  showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {tab === "finance" && <FinanceDashboard showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {tab === "projects" && <ProjectCodesManager showToast={showToast} onHelp={() => setShowHelp(true)} />}
-      {tab === "admin" && <AdminView showToast={showToast} onHelp={() => setShowHelp(true)} />}
+      {tab === "admin"    && <AdminView     showToast={showToast} onHelp={() => setShowHelp(true)} />
+      {tab === "overview"  && <HoursDashboard showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
     </div>
   );
