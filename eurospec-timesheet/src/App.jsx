@@ -1507,8 +1507,7 @@ export default function App() {
       {tab === "overview"  && <HoursDashboard  showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {tab === "finance" && <FinanceDashboard showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {tab === "projects" && <ProjectCodesManager showToast={showToast} onHelp={() => setShowHelp(true)} />}
-      {tab === "admin"    && <AdminView     showToast={showToast} onHelp={() => setShowHelp(true)} />
-      {tab === "overview"  && <HoursDashboard showToast={showToast} onHelp={() => setShowHelp(true)} />}
+      {tab === "admin"    && <AdminView     showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
     </div>
   );
