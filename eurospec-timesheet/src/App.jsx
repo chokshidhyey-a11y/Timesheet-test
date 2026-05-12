@@ -64,7 +64,7 @@ const suggestProjectCode = async (comment, projectCodes) => {
     const codeList = projectCodes.map(p => `${p.code}${p.description ? ` (${p.description})` : ""}`).join(", ");
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "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": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      headers: { "Content-Type": "application/json", "x-api-key": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 50,
@@ -1486,7 +1486,7 @@ PROJECT CODES: ${projectCodes.map(p=>`${p.code}(${p.description||"no desc"})`).j
 Answer concisely and naturally. Format numbers clearly. If data is not available, say so.`;
   };
 
-  const ANTHROPIC_KEY = "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";
+  const ANTHROPIC_KEY = "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";
 
   const send = async () => {
     const q = input.trim();
@@ -1498,7 +1498,7 @@ Answer concisely and naturally. Format numbers clearly. If data is not available
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "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": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 500, system: buildContext(), messages: newMessages.map(m => ({ role: m.role, content: m.content })) })
       });
       const data = await res.json();
