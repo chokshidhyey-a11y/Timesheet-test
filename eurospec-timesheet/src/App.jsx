@@ -19,9 +19,9 @@ import { AIAssistant } from "./components/AIAssistant";
 const tabMap = {
   toolmaker:  [{ id: "log",      label: "Log Time" }],
   cnc:        [{ id: "log",      label: "Log Time" }],
-  supervisor: [{ id: "review",   label: "Review"   }, { id: "ai", label: "AI" }],
-  finance:    [{ id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }, { id: "ai", label: "AI" }],
-  admin:      [{ id: "admin",    label: "Admin"    }, { id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }, { id: "ai", label: "AI" }],
+  supervisor: [{ id: "review",   label: "Review"   }],
+  finance:    [{ id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
+  admin:      [{ id: "admin",    label: "Admin"    }, { id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
 };
 
 export default function App() {
@@ -104,8 +104,8 @@ export default function App() {
       {tab === "finance"  && <FinanceDashboard onHelp={() => setShowHelp(true)} />}
       {tab === "projects" && <ProjectCodesManager showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {tab === "admin"    && <AdminView showToast={showToast} onHelp={() => setShowHelp(true)} />}
-      {tab === "ai"       && <AIAssistant onHelp={() => setShowHelp(true)} />}
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+      <AIAssistant user={user} />
     </div>
   );
 }
