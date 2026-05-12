@@ -14,6 +14,8 @@ export function AIAssistant({ user }) {
   const [entries, setEntries] = useState([]);
   const [projectCodes, setProjectCodes] = useState([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [feedback, setFeedback] = useState({});       // { [msgIndex]: "up" | "correcting" | "corrected" }
+  const [corrections, setCorrections] = useState({}); // { [msgIndex]: string }
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -78,6 +80,23 @@ PROJECT CODES: ${projectCodes.map(p => `${p.code}(${p.description || "no desc"})
 Answer concisely and naturally. Format numbers clearly. If data is not available, say so.`;
   };
 
+  const callAI = async (msgs) => {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 500,
+        messages: [
+          { role: "system", content: buildContext() },
+          ...msgs.map(m => ({ role: m.role, content: m.content }))
+        ]
+      })
+    });
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "Sorry, I could not get a response.";
+  };
+
   const send = async () => {
     const q = input.trim();
     if (!q || loading) return;
@@ -86,20 +105,26 @@ Answer concisely and naturally. Format numbers clearly. If data is not available
     setMessages(newMessages);
     setLoading(true);
     try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          max_tokens: 500,
-          messages: [
-            { role: "system", content: buildContext() },
-            ...newMessages.map(m => ({ role: m.role, content: m.content }))
-          ]
-        })
-      });
-      const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || "Sorry, I could not get a response.";
+      const reply = await callAI(newMessages);
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
+    }
+    setLoading(false);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const submitCorrection = async (msgIndex) => {
+    const correctionText = corrections[msgIndex]?.trim();
+    const msg = correctionText
+      ? `That answer was incorrect. ${correctionText}`
+      : "That answer was incorrect. Please reconsider and try again with a different approach.";
+    setFeedback(f => ({ ...f, [msgIndex]: "corrected" }));
+    const newMessages = [...messages, { role: "user", content: msg }];
+    setMessages(newMessages);
+    setLoading(true);
+    try {
+      const reply = await callAI(newMessages);
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
@@ -160,31 +185,85 @@ Answer concisely and naturally. Format numbers clearly. If data is not available
           <div style={{
             overflowY: "auto", padding: "14px 14px 8px",
             display: "flex", flexDirection: "column", gap: 12,
-            maxHeight: 360, minHeight: 160,
+            maxHeight: 400, minHeight: 160,
           }}>
             {messages.map((m, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", flexDirection: m.role === "user" ? "row-reverse" : "row" }}>
-                <div style={{
-                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                  background: m.role === "user" ? "#1a1f2e" : "#c8a84b",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, fontWeight: 700, color: "#fff",
-                }}>
-                  {m.role === "user" ? "U" : "✦"}
+              <div key={i}>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexDirection: m.role === "user" ? "row-reverse" : "row" }}>
+                  <div style={{
+                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                    background: m.role === "user" ? "#1a1f2e" : "#c8a84b",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, fontWeight: 700, color: "#fff",
+                  }}>
+                    {m.role === "user" ? "U" : "✦"}
+                  </div>
+                  <div style={{
+                    maxWidth: "82%", padding: "8px 11px",
+                    borderRadius: m.role === "user" ? "12px 4px 12px 12px" : "4px 12px 12px 12px",
+                    background: m.role === "user" ? "#1a1f2e" : "#f8f9fc",
+                    color: m.role === "user" ? "#fff" : "#1a1f2e",
+                    fontSize: 13, lineHeight: 1.6,
+                    border: m.role === "user" ? "none" : "1px solid #e4e7f0",
+                    whiteSpace: "pre-wrap",
+                  }}>
+                    {m.content}
+                  </div>
                 </div>
-                <div style={{
-                  maxWidth: "82%", padding: "8px 11px",
-                  borderRadius: m.role === "user" ? "12px 4px 12px 12px" : "4px 12px 12px 12px",
-                  background: m.role === "user" ? "#1a1f2e" : "#f8f9fc",
-                  color: m.role === "user" ? "#fff" : "#1a1f2e",
-                  fontSize: 13, lineHeight: 1.6,
-                  border: m.role === "user" ? "none" : "1px solid #e4e7f0",
-                  whiteSpace: "pre-wrap",
-                }}>
-                  {m.content}
-                </div>
+
+                {/* Feedback row — only on assistant messages after the first */}
+                {m.role === "assistant" && i > 0 && (
+                  <div style={{ paddingLeft: 34, marginTop: 4 }}>
+                    {!feedback[i] && (
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "#9ca3af", marginRight: 2 }}>Helpful?</span>
+                        <button
+                          onClick={() => setFeedback(f => ({ ...f, [i]: "up" }))}
+                          title="Correct"
+                          style={{ background: "none", border: "1px solid #e4e7f0", borderRadius: 4, padding: "2px 7px", cursor: "pointer", fontSize: 13, lineHeight: 1.4 }}
+                        >👍</button>
+                        <button
+                          onClick={() => setFeedback(f => ({ ...f, [i]: "correcting" }))}
+                          title="Wrong — let me correct it"
+                          style={{ background: "none", border: "1px solid #e4e7f0", borderRadius: 4, padding: "2px 7px", cursor: "pointer", fontSize: 13, lineHeight: 1.4 }}
+                        >👎</button>
+                      </div>
+                    )}
+                    {feedback[i] === "up" && (
+                      <div style={{ fontSize: 11, color: "#2a8a2a" }}>✓ Marked as helpful</div>
+                    )}
+                    {feedback[i] === "corrected" && (
+                      <div style={{ fontSize: 11, color: "#c8a84b" }}>↩ Correction sent — see updated answer below</div>
+                    )}
+                    {feedback[i] === "correcting" && (
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: "#cc4444", marginBottom: 4 }}>What was wrong? (optional — press Enter or click Send)</div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input
+                            autoFocus
+                            className="form-input"
+                            placeholder="e.g. the hours total was off…"
+                            value={corrections[i] || ""}
+                            onChange={e => setCorrections(c => ({ ...c, [i]: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && submitCorrection(i)}
+                            style={{ fontSize: 12, padding: "6px 8px", flex: 1 }}
+                          />
+                          <button
+                            onClick={() => submitCorrection(i)}
+                            style={{ background: "#cc4444", color: "#fff", border: "none", borderRadius: 5, padding: "6px 10px", cursor: "pointer", fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}
+                          >Send</button>
+                          <button
+                            onClick={() => setFeedback(f => ({ ...f, [i]: null }))}
+                            style={{ background: "none", border: "1px solid #e4e7f0", borderRadius: 5, padding: "6px 8px", cursor: "pointer", fontSize: 12, color: "#6b7280" }}
+                          >✕</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
+
             {loading && (
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#c8a84b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff" }}>✦</div>
