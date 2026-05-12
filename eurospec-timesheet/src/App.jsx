@@ -6,7 +6,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const LOGO_URL = "https://eurospectooling.com/wp-content/uploads/2024/03/logo-e1711467462820.png";
 const INACTIVITY_MS = 10 * 60 * 1000;
 const APP_SLOGAN = "Log it. Approve it. Export it.";
-const DEV_NAME = "Dhyey Chokshi (Software Developer)";
+const DEV_NAME = "Dhyey Chokshi (Developer)";
 const DEV_EMAIL = "dchokshi@eurospectooling.com";
 const HIGHER_ROLES = ["supervisor", "finance", "admin"];
 const GROQ_KEY = "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";
@@ -429,18 +429,11 @@ function Login({ onLogin, onForgot }) {
       try {
         const authData = await auth.signIn(resolvedId, password, emp.work_email || null);
         authToken = authData.access_token;
-        // Supabase Auth passed — encrypted password correct
       } catch (authErr) {
-        if (authErr.message === "WRONG_PASSWORD") {
-          // Auth user exists but password is wrong
-          setError("Incorrect password."); return;
+        if (authErr.message === "NO_AUTH_USER") {
+          setError("Account not set up. Please contact your admin."); return;
         }
-        // Auth user doesn't exist (500) — fall back to plain text check
-        const storedPass = (emp.password || "").trim();
-        const enteredPass = password.trim();
-        if (!storedPass || storedPass !== enteredPass) {
-          setError("Incorrect password."); return;
-        }
+        setError("Incorrect password."); return;
       }
 
       const user = { id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor, category: emp.category || emp.role, token: authToken, mustChangePassword: emp.must_change_password };
