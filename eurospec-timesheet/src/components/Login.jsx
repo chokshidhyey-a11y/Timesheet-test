@@ -36,9 +36,14 @@ export function Login({ onLogin, onForgot }) {
         authToken = authData.access_token;
       } catch (authErr) {
         if (authErr.message === "NO_AUTH_USER") {
-          setError("Account not set up. Please contact your admin."); return;
+          // No Supabase Auth account yet — fall back to plain-text password in employees table
+          if (!emp.password || emp.password !== password) {
+            setError("Incorrect password."); return;
+          }
+          // Plain-text matched; proceed without a Supabase token
+        } else {
+          setError("Incorrect password."); return;
         }
-        setError("Incorrect password."); return;
       }
 
       const user = { id: emp.id, name: emp.name, role: emp.role, supervisor: emp.supervisor, category: emp.category || emp.role, token: authToken, mustChangePassword: emp.must_change_password };
