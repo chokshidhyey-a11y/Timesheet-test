@@ -1,4 +1,4 @@
-# Eurospec Timesheet App
+# EuroClock
 
 ## Demo Logins
 | Role       | ID   | Password |
@@ -16,7 +16,7 @@
 2. Click **"Add New Project"**
 3. Click **"Upload"** and drag this entire folder in
 4. Click **Deploy**
-5. You'll get a live URL like `eurospec-timesheet.vercel.app` in ~60 seconds
+5. You'll get a live URL like `euroclock.vercel.app` in ~60 seconds
 
 ---
 
