@@ -9,6 +9,7 @@ const APP_SLOGAN = "Log it. Approve it. Export it.";
 const DEV_NAME = "Dhyey Chokshi (Software Developer)";
 const DEV_EMAIL = "dchokshi@eurospectooling.com";
 const HIGHER_ROLES = ["supervisor", "finance", "admin"];
+const GROQ_KEY = "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";
 
 const auth = {
   signIn: async (empId, password, workEmail = null) => {
@@ -62,22 +63,20 @@ const suggestProjectCode = async (comment, projectCodes) => {
   if (!comment || comment.length < 4 || projectCodes.length === 0) return null;
   try {
     const codeList = projectCodes.map(p => `${p.code}${p.description ? ` (${p.description})` : ""}`).join(", ");
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "llama-3.3-70b-versatile",
         max_tokens: 50,
-        system: `You are a helper for a manufacturing timesheet app. Given a work description and a list of project codes, return ONLY the single best matching project code number. If no good match exists, return "none". Never explain, just return the code or "none".`,
-        messages: [{ role: "user", content: `Work description: "${comment}"
-
-Available project codes: ${codeList}
-
-Best matching code:` }]
+        messages: [
+          { role: "system", content: `You are a helper for a manufacturing timesheet app. Given a work description and a list of project codes, return ONLY the single best matching project code number. If no good match exists, return "none". Never explain, just return the code or "none".` },
+          { role: "user", content: `Work description: "${comment}"\n\nAvailable project codes: ${codeList}\n\nBest matching code:` }
+        ]
       })
     });
     const data = await res.json();
-    const suggested = data.content?.[0]?.text?.trim();
+    const suggested = data.choices?.[0]?.message?.content?.trim();
     if (!suggested || suggested === "none") return null;
     // Validate the suggestion is an actual code
     const match = projectCodes.find(p => p.code === suggested || suggested.includes(p.code));
@@ -1486,7 +1485,7 @@ PROJECT CODES: ${projectCodes.map(p=>`${p.code}(${p.description||"no desc"})`).j
 Answer concisely and naturally. Format numbers clearly. If data is not available, say so.`;
   };
 
-  const ANTHROPIC_KEY = "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";
+  // API key defined at top level
 
   const send = async () => {
     const q = input.trim();
@@ -1496,13 +1495,20 @@ Answer concisely and naturally. Format numbers clearly. If data is not available
     setMessages(newMessages);
     setLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 500, system: buildContext(), messages: newMessages.map(m => ({ role: m.role, content: m.content })) })
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          max_tokens: 500,
+          messages: [
+            { role: "system", content: buildContext() },
+            ...newMessages.map(m => ({ role: m.role, content: m.content }))
+          ]
+        })
       });
       const data = await res.json();
-      const reply = data.content?.[0]?.text || "Sorry, I could not get a response.";
+      const reply = data.choices?.[0]?.message?.content || "Sorry, I could not get a response.";
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
