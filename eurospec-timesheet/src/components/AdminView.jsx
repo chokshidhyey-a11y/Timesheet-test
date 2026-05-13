@@ -34,7 +34,6 @@ export function AdminView({ showToast, onHelp }) {
   const [wtForm, setWtForm] = useState({ label: "", roleType: "all" });
   const [wtEditing, setWtEditing] = useState(null);
   const [wtError, setWtError] = useState("");
-  const [wtAvailable, setWtAvailable] = useState(true);
 
   // ── AI state ────────────────────────────────────────────────────────────────
   const [aiNotes, setAiNotes] = useState(() => localStorage.getItem("es_ai_notes") || "");
@@ -45,8 +44,8 @@ export function AdminView({ showToast, onHelp }) {
     db.get("entries", "order=date.desc,created_at.desc").then(ents => { setEntries(ents || []); setEntriesLoading(false); });
     db.get("project_codes", "order=code.asc").then(pcs => setProjectCodes(pcs || []));
     db.get("work_types", "order=role_type.asc,order_index.asc,label.asc")
-      .then(wts => { if (Array.isArray(wts)) setWorkTypes(wts); else setWtAvailable(false); })
-      .catch(() => setWtAvailable(false));
+      .then(wts => { if (Array.isArray(wts)) setWorkTypes(wts); })
+      .catch(() => {});
   }, []);
 
   // ── Employee actions ────────────────────────────────────────────────────────
@@ -322,26 +321,7 @@ export function AdminView({ showToast, onHelp }) {
           <div style={{ fontSize: 13, color: "#6b7280" }}>Configure the dropdown options shown to each role in the Log Time screen.</div>
         </div>
 
-        {!wtAvailable && (
-          <div style={{ padding: "12px 14px", background: "#fff8e6", border: "1px solid #f0dfa0", borderRadius: 6, marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#b8860b", marginBottom: 4 }}>Table not set up yet</div>
-            <div style={{ fontSize: 13, color: "#4b5563", lineHeight: 1.7 }}>
-              Run this SQL once in your <strong>Supabase SQL Editor</strong> (Database → SQL Editor → New query):
-            </div>
-            <pre style={{ marginTop: 8, background: "#1a1f2e", color: "#c8a84b", padding: "10px 12px", borderRadius: 4, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>{`CREATE TABLE IF NOT EXISTS work_types (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  label TEXT NOT NULL,
-  role_type TEXT NOT NULL DEFAULT 'all',
-  order_index INTEGER DEFAULT 0
-);
-ALTER TABLE work_types ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "allow_all" ON work_types
-  FOR ALL TO anon USING (true) WITH CHECK (true);`}</pre>
-          </div>
-        )}
-
-        {wtAvailable && (
-          <>
+        <>
             {wtError && <div className="login-error" style={{ marginBottom: 12 }}>{wtError}</div>}
             <div className="form-row" style={{ marginBottom: 10 }}>
               <div className="form-group">
@@ -386,8 +366,7 @@ CREATE POLICY "allow_all" ON work_types
                 </div>
               )
             }
-          </>
-        )}
+        </>
       </div>
 
       {/* ── AI Context & Training ── */}
