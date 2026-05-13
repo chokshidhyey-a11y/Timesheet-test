@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { db } from "../lib/db";
+import { getWeekRange, getMonthRange } from "../lib/utils";
 import { Footer } from "./shared/Footer";
 import { HelpButton } from "./shared/HelpButton";
 import { RefreshBtn } from "./shared/RefreshBtn";
@@ -8,11 +9,21 @@ import { Spinner } from "./shared/Spinner";
 export function SupervisorView({ user, showToast, onHelp }) {
   const [entries, setEntries] = useState([]);
   const [filter, setFilter] = useState("pending");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [teamIds, setTeamIds] = useState([]);
   const [editEntry, setEditEntry] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
+
+  const setPreset = (key) => {
+    if (key === "week")      { const r = getWeekRange(0);   setFromDate(r.from); setToDate(r.to); }
+    else if (key === "lastweek")  { const r = getWeekRange(-1);  setFromDate(r.from); setToDate(r.to); }
+    else if (key === "month")     { const r = getMonthRange(0);  setFromDate(r.from); setToDate(r.to); }
+    else if (key === "lastmonth") { const r = getMonthRange(-1); setFromDate(r.from); setToDate(r.to); }
+    else { setFromDate(""); setToDate(""); }
+  };
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -41,7 +52,10 @@ export function SupervisorView({ user, showToast, onHelp }) {
     setEditEntry(null);
   };
 
-  const visible = entries.filter(e => filter === "all" || e.status === filter);
+  const visible = entries
+    .filter(e => filter === "all" || e.status === filter)
+    .filter(e => !fromDate || e.date >= fromDate)
+    .filter(e => !toDate || e.date <= toDate);
   const pending = entries.filter(e => e.status === "pending").length;
 
   return (
@@ -156,10 +170,26 @@ export function SupervisorView({ user, showToast, onHelp }) {
         );
       })()}
 
-      <div className="filters">
-        {["pending", "approved", "rejected", "all"].map(f => (
-          <button key={f} className={`btn btn-sm ${filter === f ? "btn-primary" : "btn-secondary"}`} onClick={() => setFilter(f)}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
-        ))}
+      <div className="filters" style={{ alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#4b5563", marginBottom: 6 }}>Status</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {["pending", "approved", "rejected", "all"].map(f => (
+              <button key={f} className={`btn btn-sm ${filter === f ? "btn-primary" : "btn-secondary"}`} onClick={() => setFilter(f)}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#4b5563", marginBottom: 6 }}>Date Range</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {[["week","This Week"],["lastweek","Last Week"],["month","This Month"],["lastmonth","Last Month"],["all","All"]].map(([k,label]) => (
+              <button key={k} className="btn btn-sm btn-secondary" onClick={() => setPreset(k)}>{label}</button>
+            ))}
+            <input className="form-input" type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} style={{ fontSize: 13, padding: "6px 8px", width: 140 }} />
+            <span style={{ color: "#6b7280", fontSize: 13 }}>→</span>
+            <input className="form-input" type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ fontSize: 13, padding: "6px 8px", width: 140 }} />
+          </div>
+        </div>
       </div>
 
       <div className="card">

@@ -6,10 +6,13 @@ import { ProjectInput } from "./shared/ProjectInput";
 import { Footer } from "./shared/Footer";
 import { HelpButton } from "./shared/HelpButton";
 
+const ROLE_LABEL = { toolmaker: "Toolmaker", cnc: "CNC", new_tooling: "New Tooling" };
+
 export function ToolmakerForm({ user, showToast, onHelp }) {
   const [date, setDate] = useState(today());
-  const [jobs, setJobs] = useState([{ id: uid(), job: "", hours: "", rnd: false, comment: "" }]);
+  const [jobs, setJobs] = useState([{ id: uid(), job: "", hours: "", rnd: false, workType: "", comment: "" }]);
   const [projectCodes, setPCs] = useState([]);
+  const [workTypes, setWorkTypes] = useState([]);
   const [myEntries, setMine] = useState([]);
   const [saving, setSaving] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState({});
@@ -17,41 +20,56 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const aiTimers = useRef({});
   const jobsRef = useRef(jobs);
-  const isCNC = (user.category || user.role) === "cnc";
+
+  const userCat = user.category || user.role;
+  const isAutoApprove = userCat === "cnc" || userCat.endsWith("_auto");
+  const roleLabel = ROLE_LABEL[userCat.replace("_auto", "")] || ROLE_LABEL[user.role] || "Employee";
 
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
 
   useEffect(() => {
     db.get("project_codes", "order=code.asc").then(setPCs);
     db.get("entries", `employee_id=eq.${user.id}&order=created_at.desc&limit=30`).then(setMine);
+    db.get("work_types", "order=role_type.asc,order_index.asc,label.asc")
+      .then(wts => setWorkTypes(Array.isArray(wts) ? wts : []))
+      .catch(() => setWorkTypes([]));
   }, [user.id]);
 
-  const addRow = () => setJobs(j => [...j, { id: uid(), job: "", hours: "", rnd: false, comment: "" }]);
+  const filteredWorkTypes = workTypes.filter(wt => wt.role_type === "all" || wt.role_type === userCat.replace("_auto", ""));
+
+  const addRow = () => setJobs(j => [...j, { id: uid(), job: "", hours: "", rnd: false, workType: "", comment: "" }]);
   const removeRow = (id) => {
     setJobs(j => j.filter(r => r.id !== id));
     setAiSuggestions(s => { const n = { ...s }; delete n[id]; return n; });
   };
 
+  const triggerAI = (id, description) => {
+    if (!description || description.length < 4) return;
+    clearTimeout(aiTimers.current[id]);
+    setAiSuggestions(s => ({ ...s, [id]: { ...s[id], loading: true } }));
+    aiTimers.current[id] = setTimeout(async () => {
+      const row = jobsRef.current.find(r => r.id === id);
+      if (row && !row.job) {
+        const code = await suggestProjectCode(description, projectCodes);
+        setAiSuggestions(s => ({ ...s, [id]: { code, loading: false } }));
+      } else {
+        setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
+      }
+    }, 800);
+  };
+
   const updateRow = (id, field, val) => {
     setJobs(j => j.map(r => r.id === id ? { ...r, [field]: val } : r));
-    if (field === "comment" && val.length >= 5) {
-      clearTimeout(aiTimers.current[id]);
-      setAiSuggestions(s => ({ ...s, [id]: { ...s[id], loading: true } }));
-      aiTimers.current[id] = setTimeout(async () => {
-        const row = jobsRef.current.find(r => r.id === id);
-        if (row && !row.job) {
-          const code = await suggestProjectCode(val, projectCodes);
-          setAiSuggestions(s => ({ ...s, [id]: { code, loading: false } }));
-        } else {
-          setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
-        }
-      }, 800);
-    } else if (field === "comment" && val.length < 5) {
-      setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
+    if (field === "workType") {
+      triggerAI(id, val);
+      if (!val) setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
     }
-    if (field === "job") {
-      setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
+    if (field === "comment") {
+      const row = jobsRef.current.find(r => r.id === id);
+      if (!row?.workType) triggerAI(id, val);
+      if (val.length < 4) setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
     }
+    if (field === "job") setAiSuggestions(s => ({ ...s, [id]: { code: null, loading: false } }));
   };
 
   const acceptSuggestion = (rowId, code) => {
@@ -69,12 +87,13 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
     if (!valid.length) return;
     setSaving(true);
     try {
-      const status = isCNC ? "approved" : "pending";
+      const status = isAutoApprove ? "approved" : "pending";
       for (const r of valid) {
-        await db.post("entries", { id: uid(), employee_id: user.id, employee_name: user.name, date, day: dayOfDate(date), job: r.job.trim(), hours: parseFloat(r.hours), rnd: r.rnd, status, supervisor_id: user.supervisor, notes: r.comment || "" });
+        const notesStr = [r.workType, r.comment].filter(Boolean).join(": ");
+        await db.post("entries", { id: uid(), employee_id: user.id, employee_name: user.name, date, day: dayOfDate(date), job: r.job.trim(), hours: parseFloat(r.hours), rnd: r.rnd, status, supervisor_id: user.supervisor, notes: notesStr });
       }
-      showToast(isCNC ? "Entry submitted and auto-approved." : "Entry submitted — awaiting supervisor approval.");
-      setJobs([{ id: uid(), job: "", hours: "", rnd: false, comment: "" }]);
+      showToast(isAutoApprove ? "Entry submitted and auto-approved." : "Entry submitted — awaiting supervisor approval.");
+      setJobs([{ id: uid(), job: "", hours: "", rnd: false, workType: "", comment: "" }]);
       const updated = await db.get("entries", `employee_id=eq.${user.id}&order=created_at.desc&limit=30`);
       setMine(updated);
     } catch { showToast("Failed to submit. Please try again.", "error"); }
@@ -148,7 +167,9 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
       <div className="page-header">
         <div>
           <div className="page-title">Log Time</div>
-          <div className="page-sub">{isCNC ? "CNC — entries are auto-approved." : "Toolmaker — entries go to supervisor for approval."}</div>
+          <div className="page-sub">
+            {roleLabel} — {isAutoApprove ? "entries are auto-approved." : "entries go to supervisor for approval."}
+          </div>
         </div>
         <HelpButton onClick={onHelp} />
       </div>
@@ -165,6 +186,7 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
             <div style={{ padding: "11px 12px", background: "#f8f9fc", border: "1px solid #e4e7f0", borderRadius: 6, color: "#c8a84b", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, letterSpacing: 1, fontSize: 15 }}>{date ? dayOfDate(date) : "—"}</div>
           </div>
         </div>
+
         <div className="card-title" style={{ marginTop: 8 }}>Jobs & Hours</div>
         <div className="job-rows">
           {jobs.map(row => (
@@ -180,7 +202,42 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
                   {jobs.length > 1 && <button className="btn-icon" style={{ fontSize: 18, color: "#cc4444" }} onClick={() => removeRow(row.id)}>✕</button>}
                 </div>
               </div>
-              <input className="form-input" placeholder="Describe work (e.g. mould base machining)..." value={row.comment} onChange={e => updateRow(row.id, "comment", e.target.value)} style={{ marginTop: 8, fontSize: 14, color: "#4b5563", background: "transparent", borderColor: "#e4e7f0" }} />
+
+              {/* Work type: dropdown if configured, text input if not */}
+              <div style={{ marginTop: 8 }}>
+                <label className="form-label" style={{ marginBottom: 4 }}>Work Type</label>
+                {filteredWorkTypes.length > 0 ? (
+                  <select
+                    className="form-select"
+                    value={row.workType}
+                    onChange={e => updateRow(row.id, "workType", e.target.value)}
+                    style={{ fontSize: 14, marginBottom: 8 }}
+                  >
+                    <option value="">— Select work type —</option>
+                    {filteredWorkTypes.map(wt => (
+                      <option key={wt.id} value={wt.label}>{wt.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="form-input"
+                    placeholder="Describe work (e.g. mould base machining)..."
+                    value={row.workType}
+                    onChange={e => updateRow(row.id, "workType", e.target.value)}
+                    style={{ fontSize: 14, marginBottom: 8 }}
+                  />
+                )}
+              </div>
+
+              {/* Comment (always a free-text field) */}
+              <input
+                className="form-input"
+                placeholder="Additional comment (optional)..."
+                value={row.comment}
+                onChange={e => updateRow(row.id, "comment", e.target.value)}
+                style={{ fontSize: 14, color: "#4b5563", background: "transparent", borderColor: "#e4e7f0" }}
+              />
+
               {aiSuggestions[row.id]?.loading && !row.job && (
                 <div style={{ marginTop: 6, fontSize: 13, color: "#6b7280", display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ display: "inline-block", animation: "spin 0.8s linear infinite" }}>⟳</span> AI is finding the best project code...
@@ -205,6 +262,7 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
           ))}
         </div>
         <button className="btn-add" onClick={addRow}>+ Add Another Job</button>
+
         <div style={{ marginTop: 16, background: "#f8f9fc", border: "1px solid #e4e7f0", borderRadius: 6, overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
             {[["Regular", regHrs, "#c8a84b"], ["R&D", rndHrs, "#2a8a2a"], ["Total", totalHrs, "#1a1f2e"]].map(([label, val, color]) => (
@@ -234,11 +292,7 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
               <table>
                 <thead>
                   <tr>
-                    <th>Date</th>
-                    <th>Project</th>
-                    <th>Hrs</th>
-                    <th>Type</th>
-                    <th>Status</th>
+                    <th>Date</th><th>Project</th><th>Hrs</th><th>Type</th><th>Status</th>
                     {hasPending && <th></th>}
                   </tr>
                 </thead>

@@ -8,14 +8,22 @@ import { Spinner } from "./shared/Spinner";
 export function HoursDashboard({ onHelp }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState("month");
+  const [fromDate, setFromDate] = useState(() => getMonthRange(0).from);
+  const [toDate, setToDate] = useState(() => getMonthRange(0).to);
 
   useEffect(() => {
-    db.get("entries", "status=eq.approved&order=date.asc").then(d => { setEntries(d); setLoading(false); });
+    db.get("entries", "status=eq.approved&order=date.asc").then(d => { setEntries(d || []); setLoading(false); });
   }, []);
 
-  const range = period === "month" ? getMonthRange(0) : period === "lastmonth" ? getMonthRange(-1) : getWeekRange(0);
-  const filtered = entries.filter(e => e.date >= range.from && e.date <= range.to);
+  const setPreset = (key) => {
+    if (key === "week")      { const r = getWeekRange(0);   setFromDate(r.from); setToDate(r.to); }
+    else if (key === "month")     { const r = getMonthRange(0);  setFromDate(r.from); setToDate(r.to); }
+    else if (key === "lastmonth") { const r = getMonthRange(-1); setFromDate(r.from); setToDate(r.to); }
+    else if (key === "lastweek")  { const r = getWeekRange(-1);  setFromDate(r.from); setToDate(r.to); }
+    else { setFromDate(""); setToDate(""); }
+  };
+
+  const filtered = entries.filter(e => (!fromDate || e.date >= fromDate) && (!toDate || e.date <= toDate));
   const totalHrs = filtered.reduce((s, e) => s + Number(e.hours), 0);
   const rndHrs = filtered.filter(e => e.rnd).reduce((s, e) => s + Number(e.hours), 0);
   const regHrs = totalHrs - rndHrs;
@@ -47,10 +55,24 @@ export function HoursDashboard({ onHelp }) {
         <HelpButton onClick={onHelp} />
       </div>
 
-      <div className="quick-filters" style={{ marginBottom: 20 }}>
-        {[["week", "This Week"], ["month", "This Month"], ["lastmonth", "Last Month"]].map(([k, label]) => (
-          <button key={k} className={`btn btn-sm ${period === k ? "btn-primary" : "btn-secondary"}`} onClick={() => setPeriod(k)}>{label}</button>
-        ))}
+      {/* Date range filters */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title">Date Range</div>
+        <div className="quick-filters" style={{ marginBottom: 12 }}>
+          {[["week","This Week"],["lastweek","Last Week"],["month","This Month"],["lastmonth","Last Month"],["all","All Time"]].map(([k, label]) => (
+            <button key={k} className="btn btn-sm btn-secondary" onClick={() => setPreset(k)}>{label}</button>
+          ))}
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">From</label>
+            <input className="form-input" type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} style={{ fontSize: 15 }} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">To</label>
+            <input className="form-input" type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ fontSize: 15 }} />
+          </div>
+        </div>
       </div>
 
       <div className="stats-row" style={{ marginBottom: 20 }}>
@@ -70,7 +92,7 @@ export function HoursDashboard({ onHelp }) {
         <div className="card" style={{ textAlign: "center", padding: "48px 20px" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "#374151", marginBottom: 6 }}>No approved entries for this period</div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Try selecting a different time range above.</div>
+          <div style={{ fontSize: 14, color: "#6b7280" }}>Try selecting a different date range above.</div>
         </div>
       ) : (
         <>

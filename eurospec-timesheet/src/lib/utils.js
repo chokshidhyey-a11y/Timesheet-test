@@ -29,6 +29,7 @@ export const getMonthRange = (offset = 0) => {
 };
 
 export const SESSION_KEY = "es_user";
+export const AI_CHAT_KEY = "es_ai_chat";
 export const saveSession = (u) => sessionStorage.setItem(SESSION_KEY, JSON.stringify(u));
 export const loadSession = () => { try { const v = sessionStorage.getItem(SESSION_KEY); return v ? JSON.parse(v) : null; } catch { return null; } };
-export const clearSession = () => sessionStorage.removeItem(SESSION_KEY);
+export const clearSession = () => { sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(AI_CHAT_KEY); };

@@ -17,11 +17,12 @@ import { AdminView } from "./components/AdminView";
 import { AIAssistant } from "./components/AIAssistant";
 
 const tabMap = {
-  toolmaker:  [{ id: "log",      label: "Log Time" }],
-  cnc:        [{ id: "log",      label: "Log Time" }],
-  supervisor: [{ id: "review",   label: "Review"   }],
-  finance:    [{ id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
-  admin:      [{ id: "admin",    label: "Admin"    }, { id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
+  toolmaker:   [{ id: "log",      label: "Log Time" }],
+  cnc:         [{ id: "log",      label: "Log Time" }],
+  new_tooling: [{ id: "log",      label: "Log Time" }],
+  supervisor:  [{ id: "review",   label: "Review"   }],
+  finance:     [{ id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
+  admin:       [{ id: "admin",    label: "Admin"    }, { id: "overview", label: "Overview" }, { id: "finance", label: "Export" }, { id: "projects", label: "Codes" }],
 };
 
 export default function App() {
