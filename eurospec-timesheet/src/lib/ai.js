@@ -1,4 +1,4 @@
-export const GROQ_KEY = "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";
+export const GROQ_KEY = process.env.REACT_APP_GROQ_KEY;
 
 export const buildAIContext = (entries, projectCodes, customNotes = "") => {
   const now = new Date();
