@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { db } from "../lib/db";
 import { uid, today, dayOfDate } from "../lib/utils";
 import { suggestProjectCode } from "../lib/ai";
@@ -7,8 +7,9 @@ import { Footer } from "./shared/Footer";
 import { HelpButton } from "./shared/HelpButton";
 
 const ROLE_LABEL = { toolmaker: "Toolmaker", cnc: "CNC", new_tooling: "New Tooling", supervisor: "Supervisor", engineering: "Engineering", it: "IT", automation: "Automation", maintenance: "Maintenance", quality: "Quality", production: "Production" };
+const OFFLINE_QUEUE_KEY = "es_offline_queue";
 
-export function ToolmakerForm({ user, showToast, onHelp }) {
+export function ToolmakerForm({ user, showToast, onHelp, isOnline }) {
   const [date, setDate] = useState(today());
   const [jobs, setJobs] = useState([{ id: uid(), job: "", hours: "", rnd: false, workType: "", comment: "" }]);
   const [projectCodes, setPCs] = useState([]);
@@ -24,6 +25,40 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
   const userCat = user.category || user.role;
   const isAutoApprove = user.role === "supervisor" || userCat === "cnc" || userCat.endsWith("_auto");
   const roleLabel = ROLE_LABEL[userCat.replace("_auto", "")] || ROLE_LABEL[user.role] || "Employee";
+
+  const [queuedCount, setQueuedCount] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]").length; } catch { return 0; }
+  });
+
+  const processQueue = useCallback(async () => {
+    const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+    if (queue.length === 0) return;
+    const remaining = [];
+    let submitted = 0;
+    for (const item of queue) {
+      try {
+        const status = item.isAutoApprove ? "approved" : "pending";
+        for (const r of item.jobs) {
+          const notesStr = [r.workType, r.comment].filter(Boolean).join(": ");
+          await db.post("entries", { id: uid(), employee_id: item.employee_id, employee_name: item.employee_name, date: item.date, day: dayOfDate(item.date), job: r.job.trim(), hours: parseFloat(r.hours), rnd: r.rnd, status, supervisor_id: item.supervisor_id, notes: notesStr });
+        }
+        submitted++;
+      } catch { remaining.push(item); }
+    }
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
+    setQueuedCount(remaining.length);
+    if (submitted > 0) {
+      showToast(`${submitted} offline entr${submitted === 1 ? "y" : "ies"} submitted successfully.`);
+      const updated = await db.get("entries", `employee_id=eq.${user.id}&order=created_at.desc&limit=30`);
+      setMine(updated);
+    }
+  }, [user.id, showToast]);
+
+  useEffect(() => {
+    window.addEventListener("online", processQueue);
+    if (navigator.onLine) processQueue();
+    return () => window.removeEventListener("online", processQueue);
+  }, [processQueue]);
 
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
 
@@ -85,6 +120,15 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
     if (!date) return;
     const valid = jobs.filter(r => r.job.trim() && r.hours);
     if (!valid.length) return;
+    if (!navigator.onLine) {
+      const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+      queue.push({ id: uid(), date, jobs: valid, employee_id: user.id, employee_name: user.name, supervisor_id: user.supervisor, isAutoApprove, queuedAt: Date.now() });
+      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+      setQueuedCount(queue.length);
+      showToast("You're offline — entry saved and will submit when reconnected.");
+      setJobs([{ id: uid(), job: "", hours: "", rnd: false, workType: "", comment: "" }]);
+      return;
+    }
     setSaving(true);
     try {
       const status = isAutoApprove ? "approved" : "pending";
@@ -279,8 +323,13 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
             </div>
           )}
         </div>
+        {queuedCount > 0 && (
+          <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff8e6", border: "1px solid #f0dfa0", borderRadius: 6, fontSize: 13, color: "#b8860b", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>⏳</span> {queuedCount} entr{queuedCount === 1 ? "y" : "ies"} queued offline — will submit automatically when reconnected.
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-          <button className="btn btn-primary" onClick={submit} disabled={saving} style={{ padding: "12px 24px", fontSize: 15, width: "100%" }}>{saving ? "Submitting..." : "Submit Entry →"}</button>
+          <button className="btn btn-primary" onClick={submit} disabled={saving} style={{ padding: "12px 24px", fontSize: 15, width: "100%" }}>{saving ? "Submitting..." : isOnline === false ? "Save Offline →" : "Submit Entry →"}</button>
         </div>
       </div>
 

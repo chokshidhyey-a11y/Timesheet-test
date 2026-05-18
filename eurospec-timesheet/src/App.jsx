@@ -37,7 +37,16 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const inactivityTimer = useRef(null);
+
+  useEffect(() => {
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
 
@@ -98,6 +107,11 @@ export default function App() {
           <button className="btn-logout" onClick={handleLogout}>Sign Out</button>
         </div>
       </header>
+      {!isOnline && (
+        <div style={{ background: "#cc4444", color: "#fff", padding: "10px 16px", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+          <span>⚠</span> You're offline — any entries you submit will be saved and sent automatically when you reconnect.
+        </div>
+      )}
       {roleTabs.length > 1 && (
         <nav className="nav-tabs">
           {roleTabs.map(t => (
@@ -105,7 +119,7 @@ export default function App() {
           ))}
         </nav>
       )}
-      {tab === "log"      && <ToolmakerForm user={user} showToast={showToast} onHelp={() => setShowHelp(true)} />}
+      {tab === "log"      && <ToolmakerForm user={user} showToast={showToast} onHelp={() => setShowHelp(true)} isOnline={isOnline} />}
       {tab === "review"   && <SupervisorView user={user} showToast={showToast} onHelp={() => setShowHelp(true)} />}
       {tab === "overview" && <HoursDashboard onHelp={() => setShowHelp(true)} />}
       {tab === "finance"  && <FinanceDashboard onHelp={() => setShowHelp(true)} />}
