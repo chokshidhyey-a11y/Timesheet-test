@@ -88,7 +88,7 @@ export default function App() {
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       <header className="header" style={{ padding: 0, paddingRight: 14 }}>
         <div style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
-          {LOGO_URL && <img src={LOGO_URL} alt="Logo" style={{ height: 58, objectFit: "contain", padding: "4px 8px 4px 10px" }} />}
+          {LOGO_URL && <img src={LOGO_URL} alt="Logo" className="header-logo" style={{ height: 58, objectFit: "contain", padding: "4px 8px 4px 10px" }} />}
           <div style={{ display: "flex", alignItems: "center" }}>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#1a1f2e" }}>Euro<span style={{ color: "#c8a84b" }}>Clock</span></div>
           </div>

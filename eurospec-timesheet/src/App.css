@@ -265,6 +265,7 @@ tr:last-child td { border-bottom: none; }
   .login-box { padding: 24px 18px; }
 
   .header { height: 52px; }
+  .header-logo { height: 44px !important; }
   .header-user { max-width: 120px; font-size: 13px; }
   .btn-logout { padding: 5px 10px; font-size: 11px; }
 

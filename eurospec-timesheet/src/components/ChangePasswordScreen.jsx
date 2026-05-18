@@ -10,7 +10,7 @@ export function ChangePasswordScreen({ user, onDone, showToast }) {
 
   const submit = async () => {
     setError("");
-    if (newPass.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (newPass.length < 4) { setError("Password must be at least 4 characters."); return; }
     if (newPass !== confirm) { setError("Passwords don't match."); return; }
     setSaving(true);
     try {
@@ -40,7 +40,7 @@ export function ChangePasswordScreen({ user, onDone, showToast }) {
         {error && <div className="login-error">{error}</div>}
         <div className="form-group" style={{ marginBottom: 14 }}>
           <label className="form-label">New Password</label>
-          <input className="form-input" type="password" placeholder="Min 6 characters" value={newPass} onChange={e => setNewPass(e.target.value)} style={{ fontSize: 16 }} />
+          <input className="form-input" type="password" placeholder="Min 4 characters" value={newPass} onChange={e => setNewPass(e.target.value)} style={{ fontSize: 16 }} />
         </div>
         <div className="form-group" style={{ marginBottom: 24 }}>
           <label className="form-label">Confirm Password</label>
