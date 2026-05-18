@@ -39,7 +39,8 @@ export function FinanceDashboard({ onHelp }) {
 
   const exportCSV = () => {
     const rows = [["Project Code", "Date of Work", "Employee Code", "Date Seq", "Hours Work", "Project Part", "Project Cost", "Comment", "Plant"]];
-    withSeq.forEach(e => rows.push([e.job, e.date, e.employee_id, e.dateSeq, e.hours, "", e.rnd ? "RD" : "LB", e.notes || "", "PET"]));
+    const safe = v => /^[=+@-]/.test(String(v)) ? `'${v}` : v;
+    withSeq.forEach(e => rows.push([e.job, e.date, e.employee_id, e.dateSeq, e.hours, "", e.rnd ? "RD" : "LB", safe(e.notes || ""), "PET"]));
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
