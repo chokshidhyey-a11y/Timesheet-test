@@ -184,15 +184,15 @@ export function AdminView({ showToast, onHelp }) {
           <div className="form-group">
             <label className="form-label">Role</label>
             <select className="form-select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value, autoApprove: false }))} style={{ fontSize: 16 }}>
-              <option value="toolmaker">Toolmaker — needs approval</option>
-              <option value="new_tooling">New Tooling — needs approval</option>
-              <option value="cnc">CNC — auto-approved</option>
-              <option value="engineering">Engineering — needs approval</option>
-              <option value="it">IT — needs approval</option>
-              <option value="automation">Automation — needs approval</option>
-              <option value="maintenance">Maintenance — needs approval</option>
-              <option value="quality">Quality — needs approval</option>
-              <option value="production">Production — needs approval</option>
+              <option value="toolmaker">Toolmaker</option>
+              <option value="new_tooling">New Tooling</option>
+              <option value="cnc">CNC</option>
+              <option value="engineering">Engineering</option>
+              <option value="it">IT</option>
+              <option value="automation">Automation</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="quality">Quality</option>
+              <option value="production">Production</option>
               <option value="supervisor">Supervisor</option>
               <option value="finance">Finance</option>
               <option value="admin">Admin</option>
