@@ -7,10 +7,10 @@ import { Footer } from "./shared/Footer";
 import { HelpButton } from "./shared/HelpButton";
 import { Spinner } from "./shared/Spinner";
 
-const roleColor = { toolmaker: "#c8a84b", cnc: "#2a7a9a", new_tooling: "#7a5a2a", supervisor: "#2a8a2a", finance: "#7a2a9a", admin: "#cc4444" };
+const roleColor = { toolmaker: "#c8a84b", cnc: "#2a7a9a", new_tooling: "#7a5a2a", supervisor: "#2a8a2a", finance: "#7a2a9a", admin: "#cc4444", engineering: "#2a6a8a", it: "#5a3a9a", automation: "#8a5a2a", maintenance: "#6a2a6a", quality: "#2a8a6a", production: "#8a2a4a" };
 const displayCat = (cat) => (cat || "").replace("_auto", "");
-const isAutoEmp = (emp) => (emp.category === "cnc") || (emp.category || "").endsWith("_auto");
-const WORK_ROLE_TYPES = ["toolmaker", "cnc", "new_tooling", "all"];
+const isAutoEmp = (emp) => emp.role === "supervisor" || (emp.category === "cnc") || (emp.category || "").endsWith("_auto");
+const WORK_ROLE_TYPES = ["toolmaker", "cnc", "new_tooling", "engineering", "it", "automation", "maintenance", "quality", "production", "supervisor", "all"];
 
 export function AdminView({ showToast, onHelp }) {
   // ── Employee state ──────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ export function AdminView({ showToast, onHelp }) {
   // ── Employee actions ────────────────────────────────────────────────────────
   const supervisors = employees.filter(e => e.role === "supervisor");
   const isHigherRole = HIGHER_ROLES.includes(form.role);
-  const needsApprovalToggle = form.role === "toolmaker" || form.role === "new_tooling";
+  const needsApprovalToggle = ["toolmaker", "new_tooling", "engineering", "it", "automation", "maintenance", "quality", "production"].includes(form.role);
 
   const save = async () => {
     setEmpError("");
@@ -187,6 +187,12 @@ export function AdminView({ showToast, onHelp }) {
               <option value="toolmaker">Toolmaker — needs approval</option>
               <option value="new_tooling">New Tooling — needs approval</option>
               <option value="cnc">CNC — auto-approved</option>
+              <option value="engineering">Engineering — needs approval</option>
+              <option value="it">IT — needs approval</option>
+              <option value="automation">Automation — needs approval</option>
+              <option value="maintenance">Maintenance — needs approval</option>
+              <option value="quality">Quality — needs approval</option>
+              <option value="production">Production — needs approval</option>
               <option value="supervisor">Supervisor</option>
               <option value="finance">Finance</option>
               <option value="admin">Admin</option>
@@ -203,7 +209,7 @@ export function AdminView({ showToast, onHelp }) {
             <input className="form-input" type="email" placeholder="name@eurospectooling.com" value={form.work_email} onChange={e => setForm(f => ({ ...f, work_email: e.target.value }))} style={{ fontSize: 16 }} />
           </div>
         )}
-        {(form.role === "toolmaker" || form.role === "new_tooling" || form.role === "cnc") && (
+        {["toolmaker", "new_tooling", "cnc", "engineering", "it", "automation", "maintenance", "quality", "production"].includes(form.role) && (
           <div className="form-group" style={{ marginBottom: 12 }}>
             <label className="form-label">Supervisor</label>
             <select className="form-select" value={form.supervisor} onChange={e => setForm(f => ({ ...f, supervisor: e.target.value }))} style={{ fontSize: 16 }}>
@@ -335,6 +341,13 @@ export function AdminView({ showToast, onHelp }) {
                   <option value="toolmaker">Toolmaker</option>
                   <option value="new_tooling">New Tooling</option>
                   <option value="cnc">CNC</option>
+                  <option value="engineering">Engineering</option>
+                  <option value="it">IT</option>
+                  <option value="automation">Automation</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="quality">Quality</option>
+                  <option value="production">Production</option>
+                  <option value="supervisor">Supervisor</option>
                 </select>
               </div>
             </div>

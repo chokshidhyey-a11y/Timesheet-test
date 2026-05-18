@@ -6,7 +6,7 @@ import { ProjectInput } from "./shared/ProjectInput";
 import { Footer } from "./shared/Footer";
 import { HelpButton } from "./shared/HelpButton";
 
-const ROLE_LABEL = { toolmaker: "Toolmaker", cnc: "CNC", new_tooling: "New Tooling" };
+const ROLE_LABEL = { toolmaker: "Toolmaker", cnc: "CNC", new_tooling: "New Tooling", supervisor: "Supervisor", engineering: "Engineering", it: "IT", automation: "Automation", maintenance: "Maintenance", quality: "Quality", production: "Production" };
 
 export function ToolmakerForm({ user, showToast, onHelp }) {
   const [date, setDate] = useState(today());
@@ -22,7 +22,7 @@ export function ToolmakerForm({ user, showToast, onHelp }) {
   const jobsRef = useRef(jobs);
 
   const userCat = user.category || user.role;
-  const isAutoApprove = userCat === "cnc" || userCat.endsWith("_auto");
+  const isAutoApprove = user.role === "supervisor" || userCat === "cnc" || userCat.endsWith("_auto");
   const roleLabel = ROLE_LABEL[userCat.replace("_auto", "")] || ROLE_LABEL[user.role] || "Employee";
 
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
